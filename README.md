@@ -1,11 +1,12 @@
 # lazycl
+a Lazy Compute Library.
 (in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
 The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay of .1 to a few seconds (much lower lag on AMD cards than nvidia, but nvidia seems to have more flops), and the speed you can expect is, for example, to matmul 2 float[1000][1000] together in 1/60 second on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
 
 It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
 
-You may also lazyEval the code string if you're willing to pay compiling delay.
+You may also lazyEval the code string if you're willing to pay compiling delay, or if its not the first call of whatever code string it evals to then you dont pay compiling delay but you do pay the delay between cpu and gpu which otherwise would have done multiple opencl ndrange kernel calls in gpu before returning multiple blobs to cpu (excluding blobs marked as temp which are not copied). This means you may also lazy eval which language its using. For example, to be in "superposition" of using java or opencl for a certain node in the forest of lazy calls until its evaled to "java8:..." or "opencl1.2:..." or "javascript:..." or maybe even "cuda:..." someday.
 
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
 
