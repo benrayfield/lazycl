@@ -9,7 +9,7 @@ You may also lazyEval the code string if you're willing to pay compiling delay.
 
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
 
-Caches compiler output so you can use the code string of the function as the function itself.
+Caches compiler output so you can use the code string of the function as the function itself. Pools CLMem objects to avoid lag of reallocating them.
 
 Currently comes with the lwjgl dll for 64 bit windows but todo will also be supported on linux. lwjgl works on linux windows and mac, it says,
 and on other OS (if someone writes the code) could use other opencl implementations. Opencl works on a variety of OS.
