@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2020 benrayfield
+Copyright (c) 2013-2020+ (working on the neuralnet code etc) Ben Rayfield,
+excluding the libraries LWJGL and OpenCL and Javassist andOr Beanshell and java, which use compatible licenses.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
