@@ -19,7 +19,7 @@ Will also support lazyeval of java lambdas that return blobs (such as FloatBuffe
 TODO...
 String matmulCode1dAs2d = //todo generate kernel void hashNameBasedOnKernelCodeString
 
-			"opencl:(global float* bdOut, int const bSize, int const cSize, int const dSize, global const float* bc, global const float* cd){\n"+
+			"opencl1.2:(global float* bdOut, int const bSize, int const cSize, int const dSize, global const float* bc, global const float* cd){\n"+
 			
 			"	int bd = get_global_id(0);\n"+
 			
