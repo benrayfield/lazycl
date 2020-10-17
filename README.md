@@ -1,11 +1,14 @@
 # lazycl
-(in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl ndrange kernels, internally using lwjgl's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural. 
+(in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
+
+It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
 
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
 
 Caches compiler output so you can use the code string of the function as the function itself.
 
-Currently comes with the lwjgl dll for 64 bit windows but todo will also be supported on linux. lwjgl works on a variety of OS, and could use other opencl implementations too.
+Currently comes with the lwjgl dll for 64 bit windows but todo will also be supported on linux. lwjgl works on linux windows and mac, it says,
+and on other OS (if someone writes the code) could use other opencl implementations. Opencl works on a variety of OS.
 
 Will also support lazyeval of java lambdas that return blobs (such as FloatBuffer or long[]).
 
