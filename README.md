@@ -5,6 +5,8 @@ The lag you can expect from this system is to do multiple opencl calls within a 
 
 It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
 
+You may also lazyEval the code string if you're willing to pay compiling delay.
+
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
 
 Caches compiler output so you can use the code string of the function as the function itself.
