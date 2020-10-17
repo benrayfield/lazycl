@@ -1,6 +1,8 @@
 # lazycl
 (in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game, and the speed you can expect is, for example, to matmul 2 float[1000][1000] together in 1/60 second on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do, or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
+
 It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
 
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
