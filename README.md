@@ -1,5 +1,5 @@
 # lazycl
-(in progress) Gaming-low-lag lazyEvaled form of opencl ndrange kernels, internally using lwjgl's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
+(in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl ndrange kernels, internally using lwjgl's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural. 
 
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
 
