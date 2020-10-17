@@ -47,4 +47,6 @@ String matmulCode1dAs2d = //todo generate kernel void hashNameBasedOnKernelCodeS
 		
 		LazyBlob ac = call(matmulCode1dAs2d, new int[]{b}, a, b, c, ab, bc); //size a*c. multiplied
 		
-		TODO
+		TODO 2 int[] for the global size and local size such as for the 32x32x32 matmul cache optimization.
+		
+		TODO...
