@@ -49,6 +49,6 @@ String matmulCode1dAs2d = //todo generate kernel void hashNameBasedOnKernelCodeS
 		
 		TODO param for output blob size, such as if each get_global_id(...) writes multiple indexs, like if you were doing a bunch of sha3_256 or ed25519 calculations in parallel.
 		
-		TODO 2 int[] for the global size and local size such as for the 32x32x32 matmul cache optimization.
+		TODO 2 int[] for the global size and local size such as for the 32x32x32 matmul cache optimization (which doubled matmul speed on nvidia card, but still seems IO bottlenecked between cores and global memory).
 		
 		TODO...
