@@ -1,6 +1,8 @@
 # lazycl
 (in progress) Gaming-low-lag lazyEvaled form of opencl ndrange kernels, internally using lwjgl's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
+
 Caches compiler output so you can use the code string of the function as the function itself.
 
 Currently comes with the lwjgl dll for 64 bit windows but todo will also be supported on linux. lwjgl works on a variety of OS, and could use other opencl implementations too.
