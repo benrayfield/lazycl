@@ -57,3 +57,67 @@ String matmulCode1dAs2d = //todo generate kernel void hashNameBasedOnKernelCodeS
 		TODO 2 int[] for the global size and local size such as for the 32x32x32 matmul cache optimization (which doubled matmul speed on nvidia card, but still seems IO bottlenecked between cores and global memory).
 		
 		TODO...
+		
+		
+Older code (wont be part of this API). I'm trying to figure out why this supposedly 9 teraflop card is only doing 60 billion multiplies and 60 billion adds (and loop counters etc) per second even with caching 2048 floats 2 of 32x32 to multiply together in each core. So the following code doesnt read from global memory at all...
+
+/** matmul is probably bottlenecked by IO moving between globalMem and gpuCores
+	as it seems to be many times slower than the theoretical max flops of the gpu,
+	so I'm testing this which wont have any global memory at all except to write 1 number
+	per millions or more of calculations that dont read from global memory
+	and instead are derived from get_global_id(0).
+	*/
+	public static void testGpuComputeFlopsWithoutMuchGlobalMem(){
+		int threads =  1000000;
+		int loopSize = 1000000;
+		int opsPerLoopBody = 1;
+		double totalOps = (double)threads*loopSize*opsPerLoopBody;
+		String code =
+			"kernel void testGpuComputeFlopsWithoutMuchGlobalMem(int const a, global float* theOut){\n"+
+			"	int id = get_global_id(0);\n"+
+			"	float sum = 0;\n"+
+			"	for(int x=id; x<a+id; x++){\n"+
+			"		sum += x;\n"+
+			"	}\n"+
+			"	theOut[id] = sum;\n"+
+			"}";
+		Object[] outs = OpenclUtil.callOpencl( //compile and run it once before timing it
+			code,
+			new int[]{100},
+			120,
+			new float[100] //ignored
+		);
+		double timeStart = Time.now();
+		outs = OpenclUtil.callOpencl(
+			code,
+			new int[]{threads},
+			loopSize,
+			new float[threads] //ignored
+		);
+		float[] out = (float[]) outs[1];
+		double timeEnd = Time.now();
+		double duration = timeEnd-timeStart;
+		double flops = totalOps/duration;
+		double gflops = flops*1e-9;
+		lg("outs[0] = "+out[0]);
+		lg("outs[5] = "+out[5]);
+		lg("gflops="+gflops+" seconds="+duration+" ops="+totalOps);
+	}
+	
+	
+	
+> globalWorkSize put 0 1000000
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x29A7F92B630) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer queue CLMem pointer (0x29A7F67CBD0) CL_TRUE 0 java.nio.DirectFloatBufferU[pos=0 lim=1000000 cap=1000000] null, null
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> return [1000000, [F@722c41f4]
+> outs[0] = 4.9994036E11
+> outs[5] = 4.99945439E11
+> gflops=355.16929906737136 seconds=2.815558671951294 ops=1.0E12
+
+Its supposedly a 9585 gflop card (as https://en.wikipedia.org/wiki/List_of_Nvidia_graphics_processing_units says) but is only getting 355 * flops_per_loop_body, or 60 * flops_per_matmul_loop_body which is probably more bottlenecked by IO. Or maybe its using flops to copy from one core to adjacent core and so on?
+
+Whatever the reason those expected and observed speeds dont match, it is enough computing power to do what I need for now.
+
