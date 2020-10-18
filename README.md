@@ -1,6 +1,5 @@
 # lazycl
-a Lazy Compute Language/Library.
-(in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
+a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
 The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay of .1 to a few seconds (much lower lag on AMD cards than nvidia, but nvidia seems to have more flops), and the speed you can expect is, for example, to matmul 2 float[1000][1000] together in 1/60 second on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
 
@@ -57,6 +56,8 @@ String matmulCode1dAs2d = //todo generate kernel void hashNameBasedOnKernelCodeS
 		TODO 2 int[] for the global size and local size such as for the 32x32x32 matmul cache optimization (which doubled matmul speed on nvidia card, but still seems IO bottlenecked between cores and global memory).
 		
 		TODO...
+
+		
 		
 		
 Older code (wont be part of this API). I'm trying to figure out why this supposedly 9 teraflop card is only doing 60 billion multiplies and 60 billion adds (and loop counters etc) per second even with caching 2048 floats 2 of 32x32 to multiply together in each core. So the following code doesnt read from global memory at all...
@@ -167,4 +168,3 @@ public static void testGpuComputeFlopsWithoutMuchGlobalMem(){
 Its supposedly a 9585 gflop card (as https://en.wikipedia.org/wiki/List_of_Nvidia_graphics_processing_units says) but is only getting 355 * flops_per_loop_body, or 60 * flops_per_matmul_loop_body which is probably more bottlenecked by IO. Or maybe its using flops to copy from one core to adjacent core and so on?
 
 Whatever the reason those expected and observed speeds dont match, it is enough computing power to do what I need for now.
-
