@@ -847,7 +847,7 @@ public class OpenclUtil{
 	
 	/** Deterministic. Code starts with "(" just before the params and ends with "}". */
 	public static String kernelName(String code){
-		return Text.bytesToHex(HashUtil.sha3_256(Text.stringToBytes(code)));
+		return "fncl"+Text.bytesToHex(HashUtil.sha3_256(Text.stringToBytes(code)));
 	}
 	
 	/** TODO check which params are read and written in kernel code and optimize by using
