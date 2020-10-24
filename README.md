@@ -5,7 +5,7 @@ The lag you can expect from this system is to do multiple opencl calls within a 
 
 It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
 
-You may also lazyEval the code string if you're willing to pay compiling delay, or if its not the first call of whatever code string it evals to then you dont pay compiling delay but you do pay the delay between cpu and gpu which otherwise would have done multiple opencl ndrange kernel calls in gpu before returning multiple blobs to cpu (excluding blobs marked as temp which are not copied). This means you may also lazy eval which language its using. For example, to be in "superposition" of using java or opencl for a certain node in the forest of lazy calls until its evaled to "java8:..." or "opencl1.2:..." or "javascript:..." or maybe even "cuda:..." someday.
+(UPDATE: lazyEvaling the code string is interfering with knowing which multiple nodes to eval together in GPU before returning to CPU)((( You may also lazyEval the code string if you're willing to pay compiling delay, or if its not the first call of whatever code string it evals to then you dont pay compiling delay but you do pay the delay between cpu and gpu which otherwise would have done multiple opencl ndrange kernel calls in gpu before returning multiple blobs to cpu (excluding blobs marked as temp which are not copied). This means you may also lazy eval which language its using. For example, to be in "superposition" of using java or opencl for a certain node in the forest of lazy calls until its evaled to "java8:..." or "opencl1.2:..." or "javascript:..." or maybe even "cuda:..." someday. )))
 
 The main classes are immutable.lazycl.LazyBlob and immutable.lazycl.Util
 
