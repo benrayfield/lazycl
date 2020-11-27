@@ -170,3 +170,6 @@ Its supposedly a 9585 gflop card (as https://en.wikipedia.org/wiki/List_of_Nvidi
 Strange... I changed the += x to += x * x * x * x * x and it only did slightly less loops per second (289 billion) but 5 times more "work" (or 4 times if it did z = x * x and z * z * x) per loop body as its a plus and 4 multiplies, which is 1.1 to 1.4 teraflops.
 
 Whatever the reason those expected and observed speeds dont match, it is enough computing power to do what I need for now.
+
+
+List of opencl compatible devices: https://www.khronos.org/conformance/adopters/conformant-products/opencl
