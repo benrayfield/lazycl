@@ -55,14 +55,14 @@ public class Time{
 	
 	private static long lastTimeId = Long.MIN_VALUE;
 	
-	/** nowNano()/1e9 means the same time as (double)now(), except roundoff and lag */
+	/** utcnano. nowNano()/1e9 means the same time as (double)now(), except roundoff and lag */
 	public static long nowNano(){
 		return nanoOffset+System.nanoTime();
 	}
 	
 	/** max of number of nanoseconds since year 1970 UTC vs the last value returned + 1.
 	This can practically allocate a million ids per second
-	and in theory a billion per second.
+	and in theory a billion per second (especially if you use timeIds(int) to get a block of these longs).
 	*/
 	public static synchronized long timeId(){
 		//long utcNanoseconds = System.nanoTime()-startNano;
@@ -75,10 +75,10 @@ public class Time{
 	long yId = blockOfTimeIds(2);
 	long xId = yId-1;
 	long zId = timeId();
-	If param is big, you might have to wait 
+	TODO If param is big, you might have to wait for time to catch up as dont want it to get much out of sync with utc time.
 	*/
 	public static synchronized long timeIds(int blockSize){
-		if(blockSize < 0) throw new Error("neg");
+		if(blockSize < 1) throw new Error("blockSize must be positive: "+blockSize);
 		lastTimeId += blockSize;
 		return lastTimeId;
 	}

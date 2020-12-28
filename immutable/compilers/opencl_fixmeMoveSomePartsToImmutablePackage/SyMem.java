@@ -28,6 +28,13 @@ public class SyMem<T> extends Mem{
 	*/
 	protected IntFunction<T> memFactory;
 	
+	/** Example "T buf": a FloatBuffer or IntBuffer */
+	public SyMem(DependParam sy, T buf){
+		super(sy.elType, sy.size);
+		this.sy = sy;
+		this.mem = buf;
+		this.memFactory = null;
+	}
 	
 	public SyMem(DependParam sy, IntFunction<T> memFactory){
 		super(sy.elType, sy.size);

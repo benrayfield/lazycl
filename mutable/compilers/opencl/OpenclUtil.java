@@ -9,7 +9,9 @@ import org.lwjgl.BufferUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.nio.Buffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,6 +41,7 @@ import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.FSyMem;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.Mem;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ParallelOp;
+import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.SyMem;
 import immutable.dependtask.DependOp;
 import immutable.util.HashUtil;
 //import immutable.compilers.opencl.Mem;
@@ -146,6 +149,17 @@ public class OpenclUtil{
 		Set<DependOp> tasks,
 		Set<DependParam> outs
 	){
+		
+		//TODO optimize using "Device partitioning: the ability to partition a device into sub-devices so that
+		//work assignments can be allocated to individual compute units. This is useful for reserving areas of the
+		//device to reduce latency for time-critical tasks." it says in https://en.wikipedia.org/wiki/OpenCL#OpenCL_1.2
+		//which may take the form of multiple CLQueue and depend edges making one wait on another,
+		//especially using many CLQueue of 1 DependOp each, or something like that,
+		//but I'm skeptical of that working reliably as some GPUs might have to all threads have to
+		//run the same CompiledKernel? the opencl1.2 wikipedia page says it can be done,
+		//so TODO those experiments. For example, half the gpu cores doing matmul while the other half do mandelbrot.
+		
+		if(tasks.isEmpty()) lg("WARNING: no DependOps in callOpenclDependnet");
 		todo("TODO upgrade callOpenclDependnet to use multiple CLQueue to run multiple kernels in parallel when dependnet allows and when theres enough gpu threads. As of 2020-5-4 it looks at Set<DependOp> and chooses a sequence, only doing 1 kernel at a time, and a kernel can have many gpu threads, but sometimes a kernel has less gpu threads than the hardware supports or could be optimized by doing multiple kernels in parallel for some other reason.");
 		
 		//TODO redesign so the mem is not connected to the DependParam since thats done in OpenclUtil.callOpenclDependnet
@@ -220,6 +234,7 @@ public class OpenclUtil{
 			List<DependOp> taskSequence = anySequenceOf_dependnetOp(tasks);
 			
 			PointerBuffer globalWorkSize = null; //FIXME also pool these? Or is it low lag to alloc?
+			PointerBuffer localWorkSize_orNull = null; //FIXME also pool these? Or is it low lag to alloc?
 			
 			//Find DependParams. These are just symbols.
 			Set<DependParam> dependParamsSet = new HashSet();
@@ -274,11 +289,32 @@ public class OpenclUtil{
 				Mem mem = entry.getValue();
 				lg("In dp: "+dp);
 				lg("In mem: "+mem);
-				if(!(mem instanceof FSyMem)) throw new Error("TODO");
-				CLMem clmem = dpToPoolclmem.get(dp).mem;
-				FloatBuffer buf = ((FSyMem)mem).mem();
+				if(mem instanceof DependParam){
+					lg("Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: "+mem);
+				}else{
+					if(!(mem instanceof SyMem)){
+						throw new Error("TODO");
+					}
+					CLMem clmem = dpToPoolclmem.get(dp).mem;
+					Object buf = ((SyMem)mem).mem();
+					if(buf instanceof Buffer){
+						((Buffer)buf).rewind();
+						//TODO Lwjgl.instance().enqueueCopyBufferToCLMem((Buffer)buf, clmem);
+						if(buf instanceof FloatBuffer){
+							Lwjgl.instance().enqueueCopyFloatbufferToCLMem((FloatBuffer)buf, clmem);
+						}else{
+							throw new RuntimeException("TODO");
+						}
+					}else{
+						throw new RuntimeException("TODO");
+					}
+				}
+				
+				
+				/*FloatBuffer buf = ((FSyMem)mem).mem();
 				buf.rewind();
 				Lwjgl.instance().enqueueCopyFloatbufferToCLMem(buf, clmem);
+				*/
 			}
 			
 			//CL10.clEnqueueBarrier(Lwjgl.instance().queue());
@@ -288,18 +324,29 @@ public class OpenclUtil{
 			for(DependOp t : taskSequence){
 				if(t instanceof ParallelOp){
 					ParallelOp p = (ParallelOp)t;
-					String expectLang = "openclNdrangeKernel";
+					//String expectLang = "openclNdrangeKernel";
+					String expectLang = "opencl1.2";
 					if(!p.lang().equals(expectLang)) throw new Error("Not "+expectLang+": "+p);
-					String kernelCode = p.code();
-					CompiledKernel ck = Lwjgl.instance().compiledOrFromCache(kernelCode);
+					String kernelCodeStartingAtLparen = p.code(); //(global float* bdOut, int const bSize, int const cSize ... }
+					String kernelCode = "kernel void "+deterministicKernelName(kernelCodeStartingAtLparen)+kernelCodeStartingAtLparen;
+					CompiledKernel ck = null;
+					try{
+						ck = Lwjgl.instance().compiledOrFromCache(kernelCode);
+					}catch(org.lwjgl.opencl.OpenCLException e){
+						throw new RuntimeException("kernelCode="+kernelCode, e);
+					}
 					
-					//int[] ndRange = new int[]{t.parallelSize};
-					int[] ndRange = t.parallelSize.globalToIntArray();
-					globalWorkSize = BufferUtils.createPointerBuffer(ndRange.length);
+					//int[] ndRange = new int[]{t.forkSize};
+					int[] ndRangeGlobal = t.forkSize.globalToIntArray();
+					int[] ndRangeLocal_orNull = t.forkSize.localToIntArrayOrNull();
+					if(ndRangeLocal_orNull != null && ndRangeGlobal.length != ndRangeLocal_orNull.length) throw new RuntimeException(
+						"Diff global and local num of dims");
+					globalWorkSize = BufferUtils.createPointerBuffer(ndRangeGlobal.length);
+					localWorkSize_orNull = ndRangeLocal_orNull!=null ? BufferUtils.createPointerBuffer(ndRangeLocal_orNull.length) : null;
 					//FIXME free globalWorkSize
-					for(int n=0; n<ndRange.length; n++){
-						lg("globalWorkSize.put "+n+" "+ndRange[n]);
-						globalWorkSize.put(n, ndRange[n]);
+					for(int n=0; n<ndRangeGlobal.length; n++){
+						lg("globalWorkSize.put "+n+" "+ndRangeGlobal[n]);
+						globalWorkSize.put(n, ndRangeGlobal[n]);
 					}
 					for(int paramIndex=0; paramIndex<t.params.size(); paramIndex++){
 						DependParam param = t.params.get(paramIndex).dp;
@@ -357,10 +404,15 @@ public class OpenclUtil{
 						}
 					}
 					lg("clEnqueueNDRangeKernel for "+t);
-					CL10.clEnqueueNDRangeKernel(
+					/*CL10.clEnqueueNDRangeKernel(
 						Lwjgl.instance().queue(),
 						ck.kernel,
 						ndRange.length, null, globalWorkSize, null, null, null);
+					*/
+					CL10.clEnqueueNDRangeKernel(
+						Lwjgl.instance().queue(),
+						ck.kernel,
+						ndRangeGlobal.length, null, globalWorkSize, localWorkSize_orNull, null, null);
 				}else{
 					throw new Error("Not a ParallelOp: "+t);
 				}
@@ -416,6 +468,12 @@ public class OpenclUtil{
 
 			return Collections.unmodifiableSortedMap(ret);
 		}
+	}
+	
+	public static String deterministicKernelName(String kernelCodeStartingWithLparen){
+		byte[] hash = HashUtil.sha3_256(Text.stringToBytes(kernelCodeStartingWithLparen));
+		return "cl"+Text.bytesToHex(hash); //TODO base58? Either way, still needs a prefix in case starts with number.
+		
 	}
 	
 	public static void test_callOpenclDependnet(){
@@ -714,7 +772,9 @@ public class OpenclUtil{
 					removed = true;
 				}
 			}
-			if(!removed) throw new Error("dependnet has cycle");
+			if(!removed){
+				throw new Error("dependnet has cycle");
+			}
 		}
 		return doneList;
 	}
@@ -761,6 +821,39 @@ public class OpenclUtil{
 	/** Includes params that are read and written */ 
 	public static int countFloat1dParams(String kernelCode){
 		return count("float* ", getParamsString(kernelCode));
+	}
+	
+	public static List<String> getParamNames(String kernelCode){
+		String p = getParamsString(kernelCode);
+		List<String> ret = new ArrayList();
+		for(String s : p.trim().split(",")){
+			ret.add(Text.lastWhitespaceDelimitedToken(s));
+		}
+		return Collections.unmodifiableList(ret);
+	}
+	
+	/** Example types: float* float int* int double* double.
+	<br><br>
+	FIXME it did this:
+	(global float* bdOut, int const bSize, int const cSize, int const dSize, global const float* bc, global const float* cd)
+	-> [float*, const, const, const, float*, float*]*/
+	public static List<String> getParamTypes(String kernelCode){
+		String p = getParamsString(kernelCode);
+		List<String> ret = new ArrayList();
+		for(String s : p.trim().split(",")){
+			String[] tokens = Text.splitByWhitespaceNoEmptyTokens(s);
+			String type = null;
+			for(String token : tokens){
+				if(!token.equalsIgnoreCase("global") && !token.equalsIgnoreCase("const")){
+					type = token;
+					break;
+				}
+			}
+			if(type == null) throw new RuntimeException("Couldnt find type in: "+s);
+			//ret.add(tokens[tokens.length-2]); //Example: get "float*" from "global const float* b"
+			ret.add(type);
+		}
+		return Collections.unmodifiableList(ret);
 	}
 	
 	//static final Pattern splitComma = Pattern.compile("\\s*\\,\\s*");

@@ -29,6 +29,7 @@ import org.lwjgl.opencl.Util;
 
 //import mutable.compilers.opencl.Mem_OLD;
 import mutable.compilers.opencl.OpenclUtil;
+import mutable.util.JReflect;
 
 /** Some parts modified from http://wiki.lwjgl.org/wiki/OpenCL_in_LWJGL.html#The_Full_Code
 Wrapper of the OpenCL parts of LWJGL.
@@ -366,6 +367,22 @@ public class Lwjgl{
 			null //event
 		);
 	}
+	
+	/** TODO
+	Examples: FloatBuffer, IntBuffer
+	*
+	public void enqueueCopyBufferToCLMem(Buffer buf, CLMem mem){
+		lg("clEnqueueWriteBuffer Buffer="+buf+" CLMem="+mem);
+		JReflect.call(CL10.class.getName()+".clEnqueueWriteBuffer",
+			queue,
+			mem, 
+			CL10.CL_TRUE, //blocking_write
+			0L, //offset
+			buf, //a few different funcs depending on this type 
+			null, //event_wait_list
+			null //event
+		);
+	}*/
 	
 	/*public CLMem copyThenUseAsImmutable(float[][] in){
 		return copyThenUseAsImmutable(FloatBuffer.wrap(OpenclUtil.array2dTo1d(in)));

@@ -8,10 +8,13 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.NavigableSet;
 import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import mutable.util.Rand;
@@ -31,7 +34,7 @@ public class Text{
 	
 	private static String unicodeMessage = "UTF-8 is standard for string encoding. Its simple definition is on Wikipedia and can be copied into this software if your version of Java doesn't support it. Each byte starts with 0, 10, 110, or 1110, used to find alignment at unknown position in data, and the rest are the data.";
 	
-	public static String bytesToString(byte b[]){
+	public static String bytesToStr(byte b[]){
 		try{
 			return new String(b, "UTF-8");
 		}catch(UnsupportedEncodingException e){
@@ -67,6 +70,10 @@ public class Text{
 		s = s.trim();
 		if(s.isEmpty()) return new String[0];
 		return s.split("\\s+");
+	}
+	
+	public static NavigableSet<String> whitespaceDelimitedTokenSet(String s){
+		return Collections.unmodifiableNavigableSet(new TreeSet(Arrays.asList(Text.splitByWhitespaceNoEmptyTokens(s))));
 	}
 	
 	public static String longToConstLenHex(long g){
@@ -404,6 +411,12 @@ public class Text{
 			}
 		}
 		return s.trim();
+	}
+	
+	public static String lastWhitespaceDelimitedToken(String s){
+		//TODO optimize
+		String[] tokens = splitByWhitespaceNoEmptyTokens(s);
+		return tokens[tokens.length-1];
 	}
 	
 	public static String stat(double... d){

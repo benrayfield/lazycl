@@ -1,11 +1,14 @@
-package immutable.lazycl.impl;
+/** Ben F Rayfield offers this software opensource MIT license */
+package immutable.lazycl.impl_old;
+
+import java.util.Map;
 
 import immutable.lazycl.spec.LazyBlob;
 
 /** a blob that is whatever is downloaded from a given url. Maybe its code string should be like
 "download:https://upload.wikimedia.org/wikipedia/commons/3/34/Labrador_on_Quantock_%282175262184%29.jpg"
 */
-public class DownloadBlob /*implements LazyBlob*/{
+public class DownloadBlob extends AbstractLB{
 	
 	/*
 	//public final String sha3_256_bitlen64_hex;
@@ -20,5 +23,9 @@ public class DownloadBlob /*implements LazyBlob*/{
 	
 	//TODO
 	*/
+	
+	public DownloadBlob(Map<String,LazyBlob> params){
+		super(params);
+	}
 
 }

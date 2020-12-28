@@ -24,16 +24,16 @@ public class ParallelOp implements Task{
 	*/
 	public final String nonsandboxedLangColonCode;
 	
-	public final ParallelSize parallelSize;
+	public final ForkSize forkSize;
 	
-	/** In the case of opencl, 0 <= get_global_id(0) < parallelSize.
+	/** In the case of opencl, 0 <= get_global_id(0) < forkSize.
 	If The DependOp is not an opencl ndrange kernel,
-	such as maybe its java code to run, then parallelSize would maybe be 1,
+	such as maybe its java code to run, then forkSize would maybe be 1,
 	or maybe there would be some var in that code similar to get_global_id?
 	*/ 
-	public ParallelOp(String nonsandboxedLangColonCode, ParallelSize parallelSize){
+	public ParallelOp(String nonsandboxedLangColonCode, ForkSize forkSize){
 		this.nonsandboxedLangColonCode = nonsandboxedLangColonCode;
-		this.parallelSize = parallelSize;
+		this.forkSize = forkSize;
 	}
 	
 	public String lang(){

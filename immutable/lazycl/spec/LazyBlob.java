@@ -2,9 +2,10 @@
 package immutable.lazycl.spec;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /** Immutable. lazyEvaled bitstring made of forest of List<bitstring> that are each a function call
-similar to: "openclNdrangeKernel:...todo code here..." int[1]_parallelSizes openclParams...
+similar to: "openclNdrangeKernel:...todo code here..." int[1]_forkSizes openclParams...
 or similar to: "java:..." params... (to define a lambda).
 <br><br>
 This is a separate software from occamsfuncer cuz this garbcol (garbage collection)
@@ -12,7 +13,7 @@ is much simpler and cuz this is not sandboxed.
 Occamsfuncer will automatically compile some lambda calls to this
 for its sandboxed [number crunching and acyclicFlow optimizations].
 */
-public interface LazyBlob extends Blob{
+public strictfp interface LazyBlob extends Blob{
 	
 	//TODO separate the spec from the implementation so multiple implementations of opencl can be used without changing the core interfaces.
 	//Thats probably not necessary for lwjgl on windows vs linux but there are other opencls such as the AMD sample code in C++.
@@ -35,6 +36,23 @@ public interface LazyBlob extends Blob{
 	*
 	public List<LazyBlob> lazyCall();
 	*/
-	public Map<String,LazyBlob> lazyCall();
+	public Map<String,LazyBlob> vm_lazyCall();
+	
+	public default boolean vm_isEvaled(){
+		return vm_lazyCall() == null;
+	}
+	
+	/** Lazycl gets it once and remembers in a WeakHashMap<LazyBlob,Consumer<Blob>>, then its gone, so others cant modify,
+	or if a Blob is given in constructor then this is always null as if that constructor used this the first time.
+	*/
+	public Consumer<Blob> vm_evalReturnsToHere();
+	
+	/** if !vm_isEvaled() && vm_dependenciesAreEvaled() then can eval */
+	public default boolean vm_dependenciesAreEvaled(){
+		for(LazyBlob dependency : vm_lazyCall().values()){
+			if(!dependency.vm_isEvaled()) return false;
+		}
+		return true;
+	}
 
 }

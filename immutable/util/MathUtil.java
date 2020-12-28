@@ -817,5 +817,31 @@ public class MathUtil{
 		return b;
 	}
 	
+	public static byte[] intToBytes(int i){
+		return new byte[]{
+			(byte)(i>>>24),
+			(byte)(i>>>16),
+			(byte)(i>>>8),
+			(byte)i
+		};
+	}
+	
+	public static byte[] longToBytes(long j){
+		return new byte[]{
+			(byte)(j>>>56),
+			(byte)(j>>>48),
+			(byte)(j>>>40),
+			(byte)(j>>>32),
+			(byte)(j>>>24),
+			(byte)(j>>>16),
+			(byte)(j>>>8),
+			(byte)j
+		};
+	}
+	
+	public static int ceilOfDivide(int x, int y){
+		return (x+y-1)/y;
+	}
+	
 }
 

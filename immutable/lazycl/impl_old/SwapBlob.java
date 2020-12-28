@@ -1,4 +1,5 @@
-package immutable.lazycl.impl;
+/** Ben F Rayfield offers this software opensource MIT license */
+package immutable.lazycl.impl_old;
 import java.io.InputStream;
 import java.util.Map;
 

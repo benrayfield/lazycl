@@ -1,11 +1,23 @@
+/** Ben F Rayfield offers this software opensource MIT license */
 package immutable.lazycl.spec;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.IntToDoubleFunction;
+import java.util.function.IntToLongFunction;
 
-public interface Lazycl{
+import immutable.lazycl.impl_old.ByteArrayLB;
+import immutable.util.Text;
+
+/** A cross-platform simple low lag lazyEvaled number crunching system (TODO).
+NOT sandboxed, but could be sandboxed by formalVerification on what possible
+statements to eval, which is planned in occamsfuncer, and it has other uses as
+a normal nonsandboxed number crunching system such as gru and lstm neuralnets
+and display of 3d mandelbrot fractal in realtime, etc.
+*/
+public strictfp interface Lazycl{
 	
 	/** lazy call of blobs each as a named param, that returns a blob.
 	Normally returns instantly since it doesnt do the work until observed inside LazyBlob.
@@ -24,19 +36,33 @@ public interface Lazycl{
 	*/
 	public LazyBlob lazycl(Map<String,LazyBlob> params);
 	
-	/** wrap. throws if type not supported.
-	TODO object types include FloatBuffer, CLMem, long[], String, etc.
+	/** wrap a copy of it, so caller can optionally later modify the param without modifying the returned LazyBlob.
+	throws if type not supported.
 	*/
-	public LazyBlob wrap(Object o);
+	public LazyBlob wrapc(Object o);
+	
+	/** wrap either by copying or directly as a Backing array. Its caller's responsibility not to modify the array after wrapb.
+	throws if type not supported.*/
+	public LazyBlob wrapb(Object o);
+	
+	/** Example: lz.wrap(float.class, b*c, (int i)->i*i*i-7*i*i+3).arr(float.class)[x] -> x*x*x-7*x*x+3,
+	where 0 <= x <= b*c-1.
+	*/
+	public LazyBlob wrap(Class<?> primitiveType, int size, IntToDoubleFunction wrapMe);
+	
+	//TODO use BlobType instead of "Class<?> primitiveArrayType, int size"?
+	//TODO wrap(Class<?> primitiveArrayType, int size, Object wrapMe)?
+	
+	public LazyBlob wrap(Class<?> primitiveType, int size, IntToLongFunction wrapMe);
 	
 	public default Map<String,LazyBlob> map(Object... alternateKeyValKeyVal){
 		NavigableMap<String,LazyBlob> ret = new TreeMap();
 		if((alternateKeyValKeyVal.length&1)==1) throw new RuntimeException("odd size. must be key val key val...");
-		for(int i=0; i<alternateKeyValKeyVal.length; i++){
+		for(int i=0; i<alternateKeyValKeyVal.length; i+=2){
 			Object key = alternateKeyValKeyVal[i];
-			Object val = alternateKeyValKeyVal[i+1];
+			LazyBlob val = wrapc(alternateKeyValKeyVal[i+1]); //become LazyBlob if its not already
 			if(!(key instanceof String)) throw new RuntimeException("i="+i+" is not a "+String.class.getName()+": "+key);
-			if(!(val instanceof LazyBlob)) throw new RuntimeException("i="+i+" is not a "+LazyBlob.class.getName()+": "+val);
+			//if(!(val instanceof LazyBlob)) throw new RuntimeException("i="+i+" is not a "+LazyBlob.class.getName()+": "+val);
 			ret.put((String)key, (LazyBlob)val);
 		}
 		return Collections.unmodifiableNavigableMap(ret);
@@ -46,6 +72,20 @@ public interface Lazycl{
 	public default LazyBlob lazycl(Object... alternateKeyValKeyVal){
 		return lazycl(map(alternateKeyValKeyVal));
 	}
+	
+	/** For convenience can use when theres only a Code param.
+	Example: LazyBlob bytes = lazycl("download:https://upload.wikimedia.org/wikipedia/commons/a/a3/Ice_water_vapor.jpg");
+	*/
+	public default LazyBlob lazycl(String Code){
+		return lazycl(map("Code", Code));
+	}
+	
+	/** set of LazyBlobs that arent evaled yet and were created by this Lazycl.
+	You can use any subset of these as param of vm_dependnet(Set<LazyBlob> observes).
+	You can also include those which are already evaled in that param but they will be ignored.
+	*
+	public Set<LazyBlob> vm_lazys();
+	*/
 	
 	/** automatically called by LazyBlob.f(int) or LazyBlob.IN().read(...) etc
 	when try/catch(NullPointerException).
@@ -79,13 +119,55 @@ public interface Lazycl{
 	memories are readable and writable, around the "const" keyword,
 	except that doesnt prevent the use of OpenclUtil directly to access those CLMems,
 	but it wont happen just by use of LazyBlobs.
-	*/
+	*
 	public Set<LazyBlob> vm_evalWhichIf(LazyBlob observe);
+	*
+	public Set<DependEdge> vm_dependnet();
+	*/
 	
-	/** automatically called by LazyBlob.f(int) or LazyBlob.IN().read(...) etc
+	/** whatever is reachable from any of those and is not already evaled *
+	public Set<DependEdge> vm_dependnet(Set<LazyBlob> observes);
+	*/
+	
+	/*FIXME redesign to only eval deepest group first, since not all LazyBlobs can be evaled in a group together,
+	and evaling the deepest group may change which set of lazyblobs (a group) is to be evaled next.
+		Prototype this using a combo of java and opencl blobs that cant all be evaled at once.
+	Put all parent and child which are the same language
+	(such as lang="opencl1.2" or lang="java8WithJava4Syntax" or lang="download"
+	in the same group, and only run 1 group at a time.
+	*/
+	
+	/** true if vm_eval(ifEvalThese) is not known to fail,
+	but may still fail for unexpected reasons like costing too much gpu memory or
+	the Code string in some LazyBlob doesnt compile or contains an infinite loop etc.
+	*
+	public boolean vm_isValidSetToEval(Set<LazyBlob> ifEvalThese);
+	*/
+	
+	/** UPDATE: doesnt have to be the same set as returned by vm_dependnet but cant be just any subset of it.
+	The allowed subsets are those were if LazyBlob x is in the set and x depends on y then y is either already evaled or in the set.
+	<br><br>
+	Automatically called by LazyBlob.f(int) or LazyBlob.IN().read(...) etc
 	when try/catch(NullPointerException).
 	Not every Set<LazyBlob> is valid since it must include all dependencies of all in the Set.
-	*/
+	*
 	public void vm_eval(Set<LazyBlob> evalThese);
+	*
+	public void vm_eval(Set<DependEdge> evalThese);
+	*/
+	
+	/** If that LazyBlob isnt already evaled, causes eval of it and any not-evaled-yet dependencies and
+	depending on the implementation of Lazycl may also eval things which share those dependencies
+	such as all the LazyBlobs created so far that arent evaled yet.
+	TODO May eval them in groups (those connected by DependEdge.together) if its too much to fit into GPU memory at once. 
+	*/
+	public void vm_lazyBlobsEvalCallsThis(LazyBlob lb);
+	
+	public LazyBlob defaultParam(String name);
+	
+	/** supports which languages, such as "opencl1.2", "java8", "javascript",
+	where the Map<String,LazyBlob> has "Code" -> "opencl1.2:...code..." for example.
+	*/
+	public Set<String> langs();
 
 }

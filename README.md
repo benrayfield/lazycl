@@ -1,6 +1,18 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+```
+2020-12-28 In TestLazyCL.java, the first matrix multiply test passed, but its not well optimized yet (cuz still refactoring optimized code from humanAiNetNeural).
+> out FloatBuffer[997]=4.8162797E15
+> out FloatBuffer[998]=4.8257458E15
+> out FloatBuffer[999]=4.8340603E15
+Exception in thread "main" > Test pass: matmul bc cd, testB=7 testD=15
+java.lang.RuntimeException: TODO
+	at immutable.lazycl.spec.TestLazyCL.testOpenclRecurrentNeuralnet10CyclesDeep(TestLazyCL.java:133)
+	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:12)
+	at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+```
+
 The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay around 0.1 second, and the speed you can expect is, for example, to matmul 2 float[1000][1000] together in 1/60 second, and 6 times that much work done per time if its bottlenecked by compute instead of movement of bits between GPU cores and the GPU memory outside them and its a big enough calculation, on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card (UPDATE: I've seen it do 1.1 teraflops) but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
 
 It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.

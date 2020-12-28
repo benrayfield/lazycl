@@ -9,7 +9,7 @@ import java.util.WeakHashMap;
 
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.DependParam;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ParallelSize;
+import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ForkSize;
 
 public class DependnetBuilder{ //FIXME move to mutable package
 	
@@ -20,7 +20,7 @@ public class DependnetBuilder{ //FIXME move to mutable package
 		DependnetBuilder b = new DependnetBuilder();
 		for(DependOp op : sequence){
 			if(!op.depends.isEmpty()) throw new Error("has depends: "+op);
-			b.add(op.nonsandboxedLangColonCode, op.parallelSize, op.params.toArray(new LockPar[0]));
+			b.add(op.nonsandboxedLangColonCode, op.forkSize, op.params.toArray(new LockPar[0]));
 		}
 		return b.dependnet();
 	}
@@ -103,7 +103,7 @@ public class DependnetBuilder{ //FIXME move to mutable package
 		}
 	}
 	
-	public void add(String nonsandboxedLangColonCode, ParallelSize parallelSize, LockPar... params){
+	public void add(String nonsandboxedLangColonCode, ForkSize forkSize, LockPar... params){
 		cacheLastDependnetReturned = null;
 		
 		/*choose what class Read and Writeandoptionallyread will be. LockPar?
@@ -186,13 +186,13 @@ public class DependnetBuilder{ //FIXME move to mutable package
 				params[p] = i.lp; //dedup LockPar sometimes
 			}
 		}
-		DependOp d = new DependOp(depends, nonsandboxedLangColonCode, parallelSize, params);
+		DependOp d = new DependOp(depends, nonsandboxedLangColonCode, forkSize, params);
 		for(LockPar lp : params) paramInfo(lp.dp).put(d);
 		dependnet.add(d);
 		
 		
 		
-		/*DependOp d = new DependOp(depends, nonsandboxedLangColonCode, parallelSize, params);
+		/*DependOp d = new DependOp(depends, nonsandboxedLangColonCode, forkSize, params);
 		
 		Then in some cases create DependOps from the new Read of DependParam which depends on that DependOp (with the nonsandboxedLangColonCode),
 		and update paramLocks map and update a map of DependParam to DependOp which is the last DependOp to read or write it.

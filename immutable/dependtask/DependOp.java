@@ -13,7 +13,7 @@ import java.util.TreeSet;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.DependParam;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
 import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ParallelOp;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ParallelSize;
+import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ForkSize;
 import mutable.compilers.opencl.OpenclUtil;
 
 /** Used with OpenclUtil.callOpenclDependnet. This is a node in a dependnet.
@@ -55,18 +55,18 @@ public class DependOp extends ParallelOp{
 		return -1;
 	}
 	
-	public DependOp(String nonsandboxedLangColonCode, ParallelSize parallelSize, LockPar... params) {
-		this(Collections.EMPTY_SET, nonsandboxedLangColonCode, parallelSize, params);
+	public DependOp(String nonsandboxedLangColonCode, ForkSize forkSize, LockPar... params){
+		this(Collections.EMPTY_SET, nonsandboxedLangColonCode, forkSize, params);
 	}
 	
-	public DependOp(Set<DependOp> depends, String nonsandboxedLangColonCode, ParallelSize parallelSize, LockPar... params){
-		super(nonsandboxedLangColonCode, parallelSize);
-		this.depends = Collections.unmodifiableSet(new HashSet(Arrays.asList(params)));
+	public DependOp(Set<DependOp> depends, String nonsandboxedLangColonCode, ForkSize forkSize, LockPar... params){
+		super(nonsandboxedLangColonCode, forkSize);
+		this.depends = Collections.unmodifiableSet(new HashSet(depends));
 		this.params = Collections.unmodifiableList(new ArrayList(Arrays.asList(params)));
 	}
 	
 	public String toString(){
-		return "[DependOp nonsandboxedLangColonCode="+nonsandboxedLangColonCode+" parallelSize="+parallelSize+" numDepends="+depends.size()+" param="+params+"]";
+		return "[DependOp nonsandboxedLangColonCode="+nonsandboxedLangColonCode+" forkSize="+forkSize+" numDepends="+depends.size()+" param="+params+"]";
 	}
 	
 	/** When calling OpenclUtil.callOpenclDependnet you need to give Mem objects for these (ins) */
