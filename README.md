@@ -1,6 +1,8 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+After matmul test passed, next test is testOpenclRecurrentNeuralnetNCyclesDeep(lz, 5, 1) which seems to pass except for roundoff error due to using opencl's exp vs java's exp function (exponents of e) so I'm going to derive some exp func deterministicly and implement it using only float32 or float64 arithmetic ops, and verify its the same bits. I need that level of determinism cuz I plan to use this in merkle forests in other projects.
+
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
 ```
 2020-12-28 In TestLazyCL.java the first matrix multiply test passed, but its not well optimized yet (cuz still refactoring optimized code from humanAiNetNeural).

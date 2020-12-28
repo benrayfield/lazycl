@@ -70,7 +70,10 @@ public strictfp interface Lazycl{
 	
 	/** same as lazycl(Map<String,LazyBlob> params) but written as alternating key val key val */
 	public default LazyBlob lazycl(Object... alternateKeyValKeyVal){
-		return lazycl(map(alternateKeyValKeyVal));
+		Map<String,LazyBlob> m = map(alternateKeyValKeyVal);
+		LazyBlob Bize = m.get("Bize");
+		if(Bize != null && Bize.bize() != 64) throw new RuntimeException("Bize (if it exists) must be a long (64 bits) but is "+Bize.bize()+" bits");
+		return lazycl(m);
 	}
 	
 	/** For convenience can use when theres only a Code param.

@@ -14,7 +14,7 @@ public class CompiledKernel{
 	
 	public final CLKernel kernel;
 	
-	/** normally generated randomly. FIXME is this part of String code? */
+	/** Example: "cl" concat lowercase hex of SHA3_256 of code string starting at ( and ending with } */
 	public final String kernelName;
 	
 	public final int error;
