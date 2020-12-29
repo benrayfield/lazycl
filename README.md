@@ -1,6 +1,21 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+You only need these 2 interfaces to use LazyCL:
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java
+
+
+These are important interfaces for their internal workings:
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/opencl/OpenCL.java
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Blob.java
+
+
+
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
 ```
 2020-12-28 In TestLazyCL.java the first matrix multiply test passed, but its not well optimized yet (cuz still refactoring optimized code from humanAiNetNeural).
