@@ -3,16 +3,16 @@ a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to d
 
 You only need these 2 interfaces to use LazyCL:
 
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java (make forest of opencl ndrange kernel calls from here, statelessly and without dealing with buffers, pooling, compiling, caching, etc)
 
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java (immutable lazy-evaled bitstring, is a Blob)
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Blob.java (immutable bitstring)
 
 
-These are important interfaces for their internal workings:
+This is an important interface for its internal workings, if you want to port Lazycl to some other implementation of opencl such as AMD's C++ opencl code or to call opencl in a GPU cloud, for example:
 
 https://github.com/benrayfield/lazycl/blob/main/immutable/opencl/OpenCL.java
-
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Blob.java
 
 
 
