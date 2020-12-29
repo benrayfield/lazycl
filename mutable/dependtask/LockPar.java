@@ -1,6 +1,4 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
-
-import immutable.dependtask.LockState;
+package mutable.dependtask;
 
 /** Locked DependParam. Compare with .equals(Object).
  Example: a readWriteLock on a CLMem, used with a readLock on another 2 CLMems to sum derivatives

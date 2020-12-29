@@ -10,7 +10,7 @@ import immutable.lazycl.spec.LazyBlob;
 (caused by "Code" starts with the same prefix colon such as "opencl1.2:" or "download:"
 AND there being enough GPU memory etc to run them all together)
 which can be evaled after any dependent LazyGroups are evaled.
-This is a level above DependEdge.
+This is a level above LazyblobDependEdge.
 */
 public class LazyGroup{
 	

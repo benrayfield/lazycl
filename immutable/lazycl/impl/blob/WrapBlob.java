@@ -2,8 +2,8 @@
 package immutable.lazycl.impl.blob;
 import immutable.lazycl.spec.Blob;
 
-/** a blob thats wrapping an object, such as a FloatBuffer or float[] or LongBuffer */
-public strictfp abstract class WrapBlob<T> implements Blob{
+/** a blob thats wrapping an object, such as a FloatBuffer or float[] or LongBuffer or IntToLongFunction */
+public strictfp abstract class WrapBlob<T> extends AbstractBlob{
 	
 	public final long bize;
 	

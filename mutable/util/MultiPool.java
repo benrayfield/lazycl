@@ -14,8 +14,8 @@ import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
-import mutable.compilers.opencl.connectors.lwjgl.Lwjgl;
-import mutable.compilers.opencl.connectors.lwjgl.PoolCLMem;
+import mutable.compilers.opencl.lwjgl.Lwjgl;
+import mutable.compilers.opencl.lwjgl.PoolCLMem;
 
 /** pools multiple V for the same K,
 allowing the V used least recently to be garbcoled

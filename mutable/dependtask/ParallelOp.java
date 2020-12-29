@@ -1,4 +1,4 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
+package mutable.dependtask;
 import mutable.util.task.Task;
 
 public class ParallelOp implements Task{

@@ -1,4 +1,4 @@
-package immutable.dependtask;
+package mutable.dependtask;
 
 public enum LockState{
 

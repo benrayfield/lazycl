@@ -1,4 +1,4 @@
-package mutable.compilers.opencl.connectors.lwjgl;
+package mutable.compilers.opencl.lwjgl;
 import static mutable.util.Lg.*;
 import java.io.Closeable;
 import org.lwjgl.opencl.CL10;

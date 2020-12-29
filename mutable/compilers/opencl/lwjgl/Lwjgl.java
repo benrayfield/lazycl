@@ -1,5 +1,5 @@
 /** Ben F Rayfield offers this software opensource MIT license */
-package mutable.compilers.opencl.connectors.lwjgl;
+package mutable.compilers.opencl.lwjgl;
 import static mutable.util.Lg.*;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
@@ -27,14 +27,16 @@ import org.lwjgl.opencl.CLPlatform;
 import org.lwjgl.opencl.CLProgram;
 import org.lwjgl.opencl.Util;
 
-//import mutable.compilers.opencl.Mem_OLD;
-import mutable.compilers.opencl.OpenclUtil;
 import mutable.util.JReflect;
 
 /** Some parts modified from http://wiki.lwjgl.org/wiki/OpenCL_in_LWJGL.html#The_Full_Code
 Wrapper of the OpenCL parts of LWJGL.
 */
 public class Lwjgl{
+	
+	//TODO merge the Lwjgl and LwjglOpenCL classes.
+	
+	
 	
 	//TODO Should there be multiple CLCommandQueue? Could I get lower lag for threaded calls to opencl that way
 	//such as if jsoundcard and the main thread both wanted to use opencl?
@@ -73,7 +75,7 @@ public class Lwjgl{
 			//	for determinism but without telling it to be slower than it has to
 			//	for that determinism.
 			Util.checkCLError(error);
-			String kernName = OpenclUtil.findKernelName(kernelCode);
+			String kernName = LwjglOpenCL.findKernelName(kernelCode);
 			CLKernel kern = CL10.clCreateKernel(prog, kernName, null);
 			k = new CompiledKernel(kernelCode, prog, kern, kernName, error);
 			codeToCompiled.put(kernelCode, k);
@@ -160,7 +162,7 @@ public class Lwjgl{
 		CompiledKernel k = compiledOrFromCache(kernelCode);
 		//FIXME only allows each param to be readonly or writeonly but not both,
 		//and while its probably inefficient to do both in the same param, its said to be allowed.
-		boolean[] openclWritesParam = OpenclUtil.openclWritesParams(kernelCode); //TODO optimize by moving this into CompiledKernel
+		boolean[] openclWritesParam = LwjglOpenCL.openclWritesParams(kernelCode); //TODO optimize by moving this into CompiledKernel
 		if(openclWritesParam.length != params.length) throw new Error(
 			"params.length="+params.length+" but openclWritesParam.length="+openclWritesParam.length);
 		//Object clParam[] = new Object[params.length];
@@ -196,7 +198,7 @@ public class Lwjgl{
 						if(logDebug) lg("clCreateBuffer context CL_MEM_READ_ONLY "+(size1d*4)+" erbuf="+errorBuff);
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*4, errorBuff);
 					}else{
-						float[] fa = p instanceof float[] ? (float[])p : OpenclUtil.array2dTo1d((float[][])p);
+						float[] fa = p instanceof float[] ? (float[])p : LwjglOpenCL.array2dTo1d((float[][])p);
 						if(logDebug) lg("FloatBuffer put float[] then rewind");
 						((FloatBuffer)buffers[i]).put(fa);
 						((FloatBuffer)buffers[i]).rewind();
@@ -216,7 +218,7 @@ public class Lwjgl{
 					if(openclWritesParam[i]){
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*4, errorBuff);
 					}else{
-						double[] fa = p instanceof double[] ? (double[])p : OpenclUtil.array2dTo1d((double[][])p);
+						double[] fa = p instanceof double[] ? (double[])p : LwjglOpenCL.array2dTo1d((double[][])p);
 						((DoubleBuffer)buffers[i]).put(fa);
 						((DoubleBuffer)buffers[i]).rewind();
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (DoubleBuffer)buffers[i], errorBuff);

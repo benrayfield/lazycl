@@ -1,7 +1,9 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
+package mutable.dependtask;
 
 import java.nio.FloatBuffer;
 import java.util.function.IntFunction;
+
+import mutable.dependtask.mem.Mem;
 
 /** symbol (DependParam) and memory.
 The symbol is used in OpenclUtil.callOpenclDependnet

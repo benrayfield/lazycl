@@ -1,4 +1,4 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
+package mutable.dependtask.mem;
 
 /** the get* and put* funcs throw if this is a lazyEval mem (opencl),
 work if this wraps a FloatBuffer etc (cpu).

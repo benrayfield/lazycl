@@ -1,4 +1,4 @@
-package immutable.dependtask;
+package mutable.dependtask;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -6,10 +6,6 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.WeakHashMap;
-
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.DependParam;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ForkSize;
 
 public class DependnetBuilder{ //FIXME move to mutable package
 	

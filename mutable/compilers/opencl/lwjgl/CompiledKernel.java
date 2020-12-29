@@ -1,5 +1,5 @@
 /** Ben F Rayfield offers this software opensource MIT license */
-package mutable.compilers.opencl.connectors.lwjgl;
+package mutable.compilers.opencl.lwjgl;
 
 import org.lwjgl.opencl.CL10;
 import org.lwjgl.opencl.CLKernel;

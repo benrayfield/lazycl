@@ -1,5 +1,7 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
+package mutable.compilers.opencl.lwjgl;
 import org.lwjgl.opencl.CLMem;
+
+import mutable.dependtask.mem.Mem;
 
 public class OpenclMem extends Mem{
 	

@@ -1,5 +1,6 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
+package mutable.dependtask;
 
+import mutable.dependtask.mem.Mem;
 import mutable.util.Time;
 
 /** metadata about a memory or a constant Number to use instead. Compare with ==. */

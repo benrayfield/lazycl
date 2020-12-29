@@ -1,13 +1,13 @@
-package immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage;
+package mutable.dependtask.mem;
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
 import org.lwjgl.BufferUtils;
 
+import mutable.dependtask.DependParam;
+import mutable.dependtask.SyMem;
+
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
-
-//import mutable.compilers.opencl.FMem;
-import mutable.compilers.opencl.OpenclUtil;
 
 public class FSyMem extends SyMem<FloatBuffer> implements Cloneable{
 	

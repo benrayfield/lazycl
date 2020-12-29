@@ -1,14 +1,7 @@
 /** Ben F Rayfield offers this software opensource MIT license */
 package immutable.lazycl.impl;
 import static mutable.util.Lg.*;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.DependParam;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.FSyMem;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.Mem;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ForkSize;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.SyMem;
-import immutable.dependtask.DependOp;
-import immutable.dependtask.LockState;
+
 import immutable.lazycl.impl.blob.ByteArrayBlob;
 import immutable.lazycl.impl.blob.FloatBufferBlob;
 import immutable.lazycl.impl.blob.IToDBlob;
@@ -18,9 +11,18 @@ import immutable.lazycl.impl.blob.IToJCastFBlob;
 import immutable.lazycl.impl.blob.OneBitBlob;
 import immutable.lazycl.impl.dependnet.LazyblobDependEdge;
 import immutable.lazycl.spec.*;
+import immutable.opencl.OpenCL;
 import immutable.util.MathUtil;
 import immutable.util.Text;
-import mutable.compilers.opencl.OpenclUtil;
+import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
+import mutable.dependtask.DependOp;
+import mutable.dependtask.DependParam;
+import mutable.dependtask.ForkSize;
+import mutable.dependtask.LockPar;
+import mutable.dependtask.LockState;
+import mutable.dependtask.SyMem;
+import mutable.dependtask.mem.FSyMem;
+import mutable.dependtask.mem.Mem;
 import mutable.downloader.Download;
 
 import java.nio.Buffer;
@@ -49,6 +51,14 @@ import java.util.function.Supplier;
 Its planned to support opencl, java, and javascript, in windows and linux at least.
 */
 public strictfp class LazyclPrototype implements Lazycl{
+	
+	protected final OpenCL opencl;
+	
+	public LazyclPrototype(OpenCL opencl){
+		this.opencl = opencl;
+	}
+	
+	public OpenCL opencl(){ return opencl; }
 	
 	/*TODO have fewer LazyBlob types.
 		arrayBlob
@@ -91,7 +101,7 @@ public strictfp class LazyclPrototype implements Lazycl{
 		if(instance == null){
 			synchronized(LazyclPrototype.class){
 				if(instance == null){ //doubleCheckedLocking
-					instance = new LazyclPrototype();
+					instance = new LazyclPrototype(LwjglOpenCL.instance());
 				}
 			}
 		}
@@ -413,10 +423,10 @@ public strictfp class LazyclPrototype implements Lazycl{
 			
 			
 			
-			List<String> ndrangeParamNames = OpenclUtil.getParamNames(openclCode);
+			List<String> ndrangeParamNames = LwjglOpenCL.getParamNames(openclCode);
 			//String outBlobParamName = ndrangeParamNames.get(0);
-			List<String> ndrangeParamTypes = OpenclUtil.getParamTypes(openclCode); //Example types: float* float int* int double* double
-			boolean[] ndrangeWritesParams = OpenclUtil.openclWritesParams(openclCode);
+			List<String> ndrangeParamTypes = LwjglOpenCL.getParamTypes(openclCode); //Example types: float* float int* int double* double
+			boolean[] ndrangeWritesParams = LwjglOpenCL.openclWritesParams(openclCode);
 			//FIXME also check if reads it cuz dont want it to read the output blob cuz then its not stateless
 			//cuz is reading from something lazycl didnt (this time) put there (garbage in memory from whatever used it last?).
 			
@@ -517,7 +527,7 @@ public strictfp class LazyclPrototype implements Lazycl{
 			
 			//callOpenclDependnet can do many opencl ndrange kernels before returning to CPU for lower lag,
 			//but for now just doing 1. TODO optimize
-			SortedMap<DependParam,Mem> openclReturned = OpenclUtil.callOpenclDependnet(ins, tasks, outs);
+			SortedMap<DependParam,Mem> openclReturned = opencl().callOpenclDependnet(ins, tasks, outs);
 			Mem outMem = openclReturned.get(dependParams.get(0));
 			
 			//todo remove this[

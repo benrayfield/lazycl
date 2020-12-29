@@ -14,7 +14,8 @@ To represent tensor, use 2 Blob together, 1 being the dimension sizes as longs,
 where lowest dimension is the primitive size in bits.
 To represent sparse tensor, interpret the bitstrings to have pointers in them somehow,
 maybe similar to how in Tensorflow they use multiple dense tensors to represent sparse tensors.
-Interpret the bitstrings however you like. They are all 1d here, as a lower level of optimization.
+Interpret the bitstrings however you like. They are all 1d here, as a lower level of optimization,
+but even though blobs are 1d (like memory ranges) you can still use 1-3d opencl globalSize and localSize.
 */
 public strictfp interface Blob{
 	
@@ -119,39 +120,13 @@ public strictfp interface Blob{
 		return IN(0L, bize());
 	}
 	
-	public default <T> T arr(Class<T> type, long bitFrom, long bitToExcl){
-		//int mask = pize()-1;
-		//if((bitFrom&mask) != 0 || (bitToExcl&mask) != 0) throw new RuntimeException("TODO not aligned on blocks of "+pize()+" bits. Should still work (dont forget to ieee754 norm if isFloat) but todo write the code.");
-		long biz = bitToExcl-bitFrom;
-		if(biz > (long)Integer.MAX_VALUE*pize()) throw new RuntimeException("too big");
-		if(type == float[].class){
-			int sizeInUnitsOfPrims = (int)(biz>>5);
-			if(sizeInUnitsOfPrims<<5 != biz) throw new RuntimeException("TODO not aligned on blocks of float size");
-			float[] retF = new float[sizeInUnitsOfPrims];
-			for(int i=0; i<retF.length; i++) retF[i] = f(i);
-			return (T)retF;
-		}else if(type == FloatBuffer.class){
-			int sizeInUnitsOfPrims = (int)(biz>>5);
-			if(sizeInUnitsOfPrims<<5 != biz) throw new RuntimeException("TODO not aligned on blocks of float size");
-			FloatBuffer ret = BufferUtils.createFloatBuffer(sizeInUnitsOfPrims); //FIXME move this out of spec and into an impl
-			for(int i=0; i<sizeInUnitsOfPrims; i++) ret.put(i, f(i));
-			return (T)ret;
-		}if(type == int[].class){
-			int sizeInUnitsOfPrims = (int)(biz>>5);
-			if(sizeInUnitsOfPrims<<5 != biz) throw new RuntimeException("TODO not aligned on blocks of int size");
-			int[] retI = new int[sizeInUnitsOfPrims];
-			for(int i=0; i<retI.length; i++) retI[i] = i(i);
-			return (T)retI;
-		}else if(type == byte[].class){
-			int sizeInUnitsOfPrims = (int)(biz>>3);
-			if(sizeInUnitsOfPrims<<3 != biz) throw new RuntimeException("TODO not aligned on blocks of byte size");
-			byte[] retB = new byte[sizeInUnitsOfPrims];
-			for(int i=0; i<retB.length; i++) retB[i] = b(i);
-			return (T)retB;
-		}else{
-			throw new RuntimeException("TODO "+type);
-		}
-	}
+	/* Id like to put this in Lazycl interface but I dont want Blob to need a pointer to a Lazycl,
+	so I'm moving the implementation of "public default <T> T arr(Class<T> type, long bitFrom, long bitToExcl)" into impl package. 
+	public T newMutableMemToWriteThenWrapInImmutable(Class type, long bize){
+		toArray
+	}*/
+	
+	public <T> T arr(Class<T> type, long bitFrom, long bitToExcl);
 
 	/** Example float[] f = blob.arr(float[].class) copies to a new float[] */
 	public default <T> T arr(Class<T> type){

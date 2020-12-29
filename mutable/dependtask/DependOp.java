@@ -1,4 +1,4 @@
-package immutable.dependtask;
+package mutable.dependtask;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,11 +10,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.DependParam;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ParallelOp;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ForkSize;
-import mutable.compilers.opencl.OpenclUtil;
+import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
 
 /** Used with OpenclUtil.callOpenclDependnet. This is a node in a dependnet.
 Each node has a readLock, writeLock, or readWriteLock on DependParams (which wrap Mem or Number).
@@ -71,7 +67,7 @@ public class DependOp extends ParallelOp{
 	
 	/** When calling OpenclUtil.callOpenclDependnet you need to give Mem objects for these (ins) */
 	public static SortedSet<DependParam> dependparamsReadBeforeWritten(Set<DependOp> ops){
-		List<DependOp> list = OpenclUtil.anySequenceOf_dependnetOp(ops); //any dependnet order. Will get the same result regardless of which one.
+		List<DependOp> list = LwjglOpenCL.anySequenceOf_dependnetOp(ops); //any dependnet order. Will get the same result regardless of which one.
 		SortedSet<DependParam> readBeforeFirstWrite = new TreeSet();
 		SortedSet<DependParam> writtenYet = new TreeSet();
 		for(DependOp op : list){

@@ -1,11 +1,9 @@
-package mutable.compilers.opencl;
 /** Ben F Rayfield offers this software opensource MIT license */
-
+package mutable.compilers.opencl.lwjgl;
 import static mutable.util.Lg.*;
 import org.lwjgl.BufferUtils;
 //import static mutable.listweb.todoKeepOnlyWhatUsingIn.humanaicore.common.CommonFuncs.*;
 //import java.util.regex.Pattern;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -23,33 +21,23 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.WeakHashMap;
-import java.util.function.Function;
-
-import org.lwjgl.LWJGLException;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
 //import org.pushingpixels.substance.internal.utils.SubstanceStripingUtils;
 import org.lwjgl.opencl.CLMem;
 
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.DependParam;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.FSyMem;
-//import immutable.compilers.opencl.DependOp;
-//import immutable.compilers.opencl.DependParam;
-//import immutable.compilers.opencl.ForestOp;
-//import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ForestOp;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.LockPar;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.Mem;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.ParallelOp;
-import immutable.compilers.opencl_fixmeMoveSomePartsToImmutablePackage.SyMem;
-import immutable.dependtask.DependOp;
+import immutable.opencl.OpenCL;
 import immutable.util.HashUtil;
 //import immutable.compilers.opencl.Mem;
 //import immutable.forestop.impl.OpenclMem;
 import immutable.util.Text;
-import mutable.compilers.opencl.connectors.lwjgl.CompiledKernel;
-import mutable.compilers.opencl.connectors.lwjgl.Lwjgl;
-import mutable.compilers.opencl.connectors.lwjgl.PoolCLMem;
+import mutable.dependtask.DependOp;
+import mutable.dependtask.DependParam;
+import mutable.dependtask.LockPar;
+import mutable.dependtask.ParallelOp;
+import mutable.dependtask.SyMem;
+import mutable.dependtask.mem.FSyMem;
+import mutable.dependtask.mem.Mem;
 //import mutable.listweb.todoKeepOnlyWhatUsingIn.humanaicore.common.MathUtil;
 //import mutable.listweb.todoKeepOnlyWhatUsingIn.humanaicore.common.Rand;
 //import mutable.util.MultiPool;
@@ -57,30 +45,32 @@ import mutable.compilers.opencl.connectors.lwjgl.PoolCLMem;
 //import mutable.util.ui.StretchVideo;
 import mutable.util.MultiPool;
 
-public class OpenclUtil{
-	private OpenclUtil(){}
+public class LwjglOpenCL implements OpenCL{
+	private LwjglOpenCL(){}
+	
+	//TODO merge the Lwjgl and LwjglOpenCL classes.
+	
+	private static OpenCL instance;
+	public static OpenCL instance(){
+		if(instance == null){ //doubleCheckedLocking optimization avoids synchronized in most calls
+			synchronized(LwjglOpenCL.class){
+				if(instance == null){
+					instance = new LwjglOpenCL();
+				}
+			}
+		}
+		return instance;
+	}
+	
+	public String version(){ return "1.2"; }
 	
 	
-	/** This is the simplest way to call opencl but can only call it about 100 times
-	per second cuz of the lag from java to lwjgl opencl to java.
-	For lower lag do for example 30 opencl kernels per call in
-	callOpenclDependnet for total 1500 sequential kernel calls per second.
-	callOpenclDependnet is the recommended way (TODO not working as of 2020-2-1).
-	<br><br>
-	OpenclUtil doesnt modify any of the inputs or outputs, even if marked as mutable like "global double* bdOut".
-	Takes an opencl kernel code string and caches its compiled form,
-	and takes an nd-range int[1] (only 1d works so far, but wraps 2d array in 1d and back automatically)
-	and Object[] params which may be array, int, etc,
-	and returns an Object[] of the same size as Object[] params, reusing those not modified,
-	and replacing those modified by opencl. It knows the difference by basic parsing of parts of the kernel string.
-	I will upgrade it to do doubles instead of just floats, for use in recurrentjava,
-	but Ive read that opencl is not reliable of support for doubles but is reliable of support for floats,
-	*/
-	public static synchronized Object[] callOpencl(String kernelCode, int[] ndRange, Object... params){
+	/** See comment in OpenCL.callOpencl */
+	public synchronized Object[] callOpencl(String kernelCode, int[] globalSize, int[] localSizeOrNull, Object... params){
 	//public static synchronized void callOpencl(String kernelCode, int[] ndRange, Object[] paramsRead, Object[] paramsWrite){
 		//lg("java.library.path="+System.getProperty("java.library.path"));
 		try{
-			return Lwjgl.instance().callOpencl(kernelCode, ndRange, params);
+			return Lwjgl.instance().callOpencl(kernelCode, globalSize, params);
 			//Lwjgl.instance().callOpencl(kernelCode, ndRange, paramsRead, paramsWrite);
 		}catch(Throwable t){
 			throw new Error("kernelCode["+kernelCode+"]", t);
@@ -112,39 +102,8 @@ public class OpenclUtil{
 	
 	
 	
-	/** FIXME upgrade the pool to garbcol. As of 2020-4-12 it only allocates and shares them
-	but will run out of memory if a variety of sizes keep being requested
-	since the earlier requested sizes wont be garbcoled.
-	<br><br> 
-	The Mems input and output are self contained such as ArrayMem,
-	but (TODO) I'm undecided exactly which subtype(s) of Mem.
-	<br><br>
-	This is the recommended way to call opencl (TODO not working as of 2020-2-1).
-	You call this for example 50 times per second with multiple opencl kernels each.
-	This does not leave any state in opencl
-	except the pooling of CLMems and CompiledKernel etc
-	but caller doesnt have to know about that other than
-	...
-	(TODO instead of DependParam holding memory, pool it by size and type only,
-	using PoolCLMem).
-	...
-	to allow DependnetParam to be garbcoled asap since
-	those resources may be held in pool until DependnetParam is garbcoled
-	(FIXME verify memory is freed then, in BiMem).
-	The CLMem pooling is needed cuz allocating CLMem is laggy
-	and would prevent running a neuralnet
-	between adjacent video frames of a game (such as .01 second).
-	<br><br>
-	Example Object values in the maps:
-	int[], float[], long[], double[], Integer, Float, Long, Double.
-	<br><br>
-	---------------
-	<br><br>
-	similar to callOpenclForest except this is more optimizable
-	as it can use the same CLMem multiple times and simultaneously read and write it.
-	callOpenclForest maybe should call this.
-	*/
-	public static SortedMap<DependParam,Mem> callOpenclDependnet(
+	/** see comment in OpenCL.callOpenclDependnet */
+	public SortedMap<DependParam,Mem> callOpenclDependnet(
 		Map<DependParam,Mem> ins,
 		Set<DependOp> tasks,
 		Set<DependParam> outs

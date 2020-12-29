@@ -2,7 +2,7 @@
 package immutable.lazycl.impl.blob;
 import immutable.lazycl.spec.Blob;
 
-public strictfp class OneBitBlob implements Blob{
+public strictfp class OneBitBlob extends AbstractBlob{
 	
 	public final boolean bit;
 

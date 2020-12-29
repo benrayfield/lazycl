@@ -153,6 +153,7 @@ public strictfp class TestLazyCL{
 				"Code", matmulCode1dAs2d,
 				"Bize", nodes*32L, //float is 32 bits. get float[1*nodes]
 				"GlobalSize", nodes,
+				//TODO also use LocalSize of new int[]{32,32} or 32, and GlobalSize of new int[]{something,32}
 				"bSize", 1,
 				"cSize", nodes,
 				"dSize", nodes,
