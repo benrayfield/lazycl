@@ -1,5 +1,6 @@
 /** Ben F Rayfield offers this software opensource MIT license */
 package immutable.lazycl.spec;
+import static mutable.util.Lg.*;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -103,6 +104,13 @@ public strictfp interface Lazycl{
 	 */
 	public default LazyBlob lazycl(Object... alternateKeyValKeyVal){
 		Map<String, LazyBlob> m = map(alternateKeyValKeyVal);
+		
+		/*LazyBlob ins = m.get("ins");
+		lg("ins.d(0) = "+ins.d(0));
+		lg("ins.d(1) = "+ins.d(1));
+		lg("ins.d(2) = "+ins.d(2));
+		*/
+		
 		LazyBlob Bize = m.get("Bize");
 		if (Bize != null && Bize.bize() != 64)
 			throw new RuntimeException("Bize (if it exists) must be a long (64 bits) but is " + Bize.bize() + " bits");

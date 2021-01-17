@@ -1,5 +1,5 @@
 /** Ben F Rayfield offers this software opensource MIT license */
-package immutable.lazycl.spec;
+package immutable.util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;

@@ -1,5 +1,6 @@
 /** Ben F Rayfield offers this software opensource MIT license */
 package immutable.util;
+import static mutable.util.Lg.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
@@ -78,7 +79,19 @@ public class MathUtil{
 	public static void main(String args[]){
 		//testPermutate();
 		testSigmoidAndItsInverse();
+		testDoublesVsByteRawBitsConversion();
 		//testWeightedCoinFlip();
+	}
+	
+	public static void testDoublesVsByteRawBitsConversion(){
+		double[] d = new double[]{3, 4, 5, Math.PI, -Math.E};
+		double[] dCopy = d.clone();
+		double[] d2 = bytesToDoubles(doublesToBytes(d));
+		if(!Arrays.equals(dCopy,d2)) throw new RuntimeException("bytesToDoubles then doublesToBytes gave different doubles");
+		for(int i=0; i<dCopy.length; i++){
+			lg("dCopy"+i+"="+dCopy[i]+" d2_"+i+"="+d2[i]);
+		}
+		lg("testDoublesVsByteRawBitsConversion test pass");
 	}
 	
 	/** no Rand allowed in immutable package
@@ -680,6 +693,13 @@ public class MathUtil{
 		return ret;
 	}
 	
+	public static void copyIntIntoByteArray(byte[] b, int byteIndex, int j){
+		for(int i=3; i>=0; i--){
+			b[byteIndex+i] = (byte)j;
+			j>>=8;
+		}
+	}
+	
 	public static void copyLongIntoByteArray(byte[] b, int byteIndex, long j){
 		for(int i=7; i>=0; i--){
 			b[byteIndex+i] = (byte)j;
@@ -711,10 +731,19 @@ public class MathUtil{
 		return b;
 	}
 	
+	public static byte[] floatsToBytes(float[] d){
+		byte[] b = new byte[d.length<<2];
+		for(int i=0; i<d.length; i++){
+			copyIntIntoByteArray(b, i<<2, Float.floatToRawIntBits(d[i]));
+		}
+		return b;
+	}
+	
 	public static double[] bytesToDoubles(byte[] b){
+		if((b.length&7)!=0) throw new RuntimeException("Not a multiple of 8 bytes: "+b.length);
 		double[] d = new double[b.length>>3];
 		for(int i=0; i<d.length; i++){
-			d[i] = Double.longBitsToDouble(readLongFromByteArray(b,i<<3));
+			d[i] = Double.longBitsToDouble(readLongFromByteArray(b, i<<3));
 		}
 		return d;
 	}

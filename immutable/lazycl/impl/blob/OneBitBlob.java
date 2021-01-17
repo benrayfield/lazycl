@@ -1,6 +1,6 @@
 /** Ben F Rayfield offers this software opensource MIT license */
 package immutable.lazycl.impl.blob;
-import immutable.lazycl.spec.Blob;
+import immutable.util.Blob;
 
 public strictfp class OneBitBlob extends AbstractBlob{
 	

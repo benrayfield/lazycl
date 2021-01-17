@@ -67,6 +67,7 @@ public class LwjglOpenCL implements OpenCL{
 	
 	/** See comment in OpenCL.callOpencl */
 	public synchronized Object[] callOpencl(String kernelCode, int[] globalSize, int[] localSizeOrNull, Object... params){
+		if(localSizeOrNull != null) throw new UnsupportedOperationException("TODO allow nonnull int[] localSizeOrNull but for now if you want to do that use callOpenclDependnet which is the newer code. This function should TODO be rewritten to call callOpenclDependnet as its the older code that callOpenclDependnet is a refactoring of.");
 	//public static synchronized void callOpencl(String kernelCode, int[] ndRange, Object[] paramsRead, Object[] paramsWrite){
 		//lg("java.library.path="+System.getProperty("java.library.path"));
 		try{
@@ -358,7 +359,7 @@ public class LwjglOpenCL implements OpenCL{
 							
 							//if(ck == null) ck = Lwjgl.instance().compiledOrFromCache(kernelCode); //FIXME
 							
-							lg("set kernel param "+paramIndex+" to CLMem "+cm);
+							lg("set kernel param "+paramIndex+" to CLMem "+cm+" dp="+param);
 							ck.kernel.setArg(paramIndex, cm);
 						}
 					}
@@ -386,21 +387,24 @@ public class LwjglOpenCL implements OpenCL{
 			SortedMap<DependParam,Mem> ret = new TreeMap();
 			lg("outs.size "+outs.size());
 			for(DependParam dp : outs){
-				if(dp.elType != float.class) throw new Error("TODO");
-				Mem mem = new FSyMem(dp);
+				//if(dp.elType != float.class) throw new Error("TODO");
+				//Mem mem = new FSyMem(dp);
+				SyMem<Buffer> mem = new SyMem(dp); //lazy allocates LongBuffer or FloatBuffer etc depending on dp.elType and dp.size
 				ret.put(dp,mem);
 				
 				//XXXX
 				//CLMem clmem = testPoolCLMem.mem; //FIXME
 				CLMem clmem = dpToPoolclmem.get(dp).mem;
 				//CLMem clmem = testPoolCLMem.mem; //FIXME
-				FloatBuffer buf = ((FSyMem)mem).mem();
+				//FloatBuffer buf = ((FSyMem)mem).mem();
+				Buffer buf = mem.mem();
 				buf.rewind();
 				//FIXME if its written as input then read as output, would need to rewind twice,
 				//but can only do it once before opencl starts,
 				//so must only allow a FloatBuffer to be used once in callOpenclDependnet,
 				//IF thats whats causing it to return all 0s as of 2020-4-3-11a.
-				Lwjgl.instance().enqueueCopyClmemToFloatbuffer(clmem, buf);
+				//Lwjgl.instance().enqueueCopyClmemToFloatbuffer(clmem, buf);
+				Lwjgl.instance().enqueueCopyClmemToBuffer(clmem, buf);
 			}
 			
 			//CL10.clEnqueueBarrier(Lwjgl.instance().queue());

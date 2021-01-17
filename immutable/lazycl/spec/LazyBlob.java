@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import immutable.util.Blob;
+
 /** Immutable. lazyEvaled bitstring made of forest of List<bitstring> that are each a function call
 similar to: "openclNdrangeKernel:...todo code here..." int[1]_forkSizes openclParams...
 or similar to: "java:..." params... (to define a lambda).

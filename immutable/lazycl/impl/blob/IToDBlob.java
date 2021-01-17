@@ -4,8 +4,8 @@ import java.io.InputStream;
 import java.util.Map;
 import java.util.function.IntToDoubleFunction;
 
-import immutable.lazycl.spec.Blob;
 import immutable.lazycl.spec.LazyBlob;
+import immutable.util.Blob;
 
 /** a bitstring of size*64 bits. Each is IntToDoubleFunction.applyAsDouble(int) */
 public strictfp class IToDBlob extends WrapBlob<IntToDoubleFunction>{

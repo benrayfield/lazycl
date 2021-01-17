@@ -12,6 +12,7 @@ public class DependParam extends Mem implements Cloneable, Comparable<DependPara
 	/** optional */
 	public final String comment;
 	
+	/** TODO allow put this in constructor */
 	public final long id = Time.timeId();
 	
 	public DependParam(String comment, Class elType, int size){
@@ -38,7 +39,7 @@ public class DependParam extends Mem implements Cloneable, Comparable<DependPara
 	}
 	
 	public String toString(){
-		return comment+"_"+id;
+		return "dp_"+comment+"_"+id+"_"+elType.getName()+"_siz"+size;
 	}
 	
 	public boolean equals(Object obj){

@@ -344,6 +344,20 @@ public class Lwjgl{
 		return CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, byteSize, errorBuff);
 	}
 	
+	public void enqueueCopyClmemToBuffer(CLMem mem, Buffer buf){
+		lg("clEnqueueReadBuffer CLMem="+mem+" Buffer="+buf+", using JReflect.call...");
+		JReflect.call(
+			CL10.class.getName()+".clEnqueueReadBuffer",
+			queue,
+			mem,
+			CL10.CL_TRUE, //blocking_read
+			0L, //offset
+			buf,
+			null, //event_wait_list. https://www.khronos.org/registry/OpenCL/sdk/1.1/docs/man/xhtml/clEnqueueReadBuffer.html says can be null to not wait on anything.
+			null //https://www.khronos.org/registry/OpenCL/sdk/1.1/docs/man/xhtml/clEnqueueReadBuffer.html says this can be null if dont need to ask if the event is finished later
+		);
+	}
+	
 	public void enqueueCopyClmemToFloatbuffer(CLMem mem, FloatBuffer buf){
 		lg("clEnqueueReadBuffer CLMem="+mem+" FloatBuffer="+buf);
 		CL10.clEnqueueReadBuffer(
@@ -360,6 +374,20 @@ public class Lwjgl{
 	public void enqueueCopyFloatbufferToCLMem(FloatBuffer buf, CLMem mem){
 		lg("clEnqueueWriteBuffer FloatBuffer="+buf+" CLMem="+mem);
 		CL10.clEnqueueWriteBuffer(
+			queue,
+			mem, 
+			CL10.CL_TRUE, //blocking_write
+			0L, //offset
+			buf, 
+			null, //event_wait_list
+			null //event
+		);
+	}
+	
+	public void enqueueCopyBufferToCLMem(Buffer buf, CLMem mem){
+		lg("clEnqueueWriteBuffer Buffer="+buf+" CLMem="+mem+", using JReflect.call...");
+		JReflect.call(
+			CL10.class.getName()+".clEnqueueWriteBuffer",
 			queue,
 			mem, 
 			CL10.CL_TRUE, //blocking_write

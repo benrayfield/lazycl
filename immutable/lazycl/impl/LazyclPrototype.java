@@ -3,6 +3,7 @@ package immutable.lazycl.impl;
 import static mutable.util.Lg.*;
 
 import immutable.lazycl.impl.blob.ByteArrayBlob;
+import immutable.lazycl.impl.blob.ByteBufferBlob;
 import immutable.lazycl.impl.blob.FloatBufferBlob;
 import immutable.lazycl.impl.blob.IToDBlob;
 import immutable.lazycl.impl.blob.IToDCastFBlob;
@@ -12,6 +13,7 @@ import immutable.lazycl.impl.blob.OneBitBlob;
 import immutable.lazycl.impl.dependnet.LazyblobDependEdge;
 import immutable.lazycl.spec.*;
 import immutable.opencl.OpenCL;
+import immutable.util.Blob;
 import immutable.util.MathUtil;
 import immutable.util.Text;
 import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
@@ -26,6 +28,7 @@ import mutable.dependtask.mem.Mem;
 import mutable.downloader.Download;
 
 import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -149,6 +152,16 @@ public strictfp class LazyclPrototype implements Lazycl{
 		}else if(o instanceof byte[]){
 			if(forceCopy) o = ((byte[])o).clone();
 			return new SimpleLazyBlob(new ByteArrayBlob((byte[])o));
+		}else if(o instanceof double[]){
+			//if(forceCopy) o = ((double[])o).clone();
+			//TODO optimize by creating a Blob type for double[], a blob type for float[], a blob type for int[], etc
+			//but for now just convert it to byte array first.
+			return wrap(forceCopy,MathUtil.doublesToBytes((double[])o));
+		}else if(o instanceof float[]){
+			//if(forceCopy) o = ((float[])o).clone();
+			//TODO optimize by creating a Blob type for double[], a blob type for float[], a blob type for int[], etc
+			//but for now just convert it to byte array first.
+			return wrap(forceCopy,MathUtil.floatsToBytes((float[])o));
 		}else if(o instanceof Integer){
 			//TODO optimize by creating a differerent wrapper class for each primitive array type, and this would be int[1]
 			//but for now just put everything in wrapper of byte[]
@@ -156,11 +169,15 @@ public strictfp class LazyclPrototype implements Lazycl{
 		}else if(o instanceof Long){
 			return new SimpleLazyBlob(new ByteArrayBlob(MathUtil.longToBytes((Long)o)));
 		}else if(o instanceof Buffer){
-			if(o instanceof FloatBuffer){
-				if(forceCopy){
-					//o = ((?)o).clone();
-					throw new RuntimeException("TODO copy");
-				}
+			//TODO generalize to ByteBufferBlob for all Buffer types (PointerBuffer is not a Buffer)
+			//instead of checking "o instanceof FloatBuffer" (from when all my arrays in opencl params were float arrays)
+			if(forceCopy){
+				//o = ((?)o).clone();
+				throw new RuntimeException("TODO copy");
+			}
+			if(o instanceof ByteBuffer){
+				return lb(new ByteBufferBlob((ByteBuffer)o));
+			}else if(o instanceof FloatBuffer){
 				return lb(new FloatBufferBlob((FloatBuffer)o));
 			}
 			//TODO IntBuffer etc
@@ -489,6 +506,9 @@ public strictfp class LazyclPrototype implements Lazycl{
 					if("float*".equals(inType)){
 						inputEltype = float.class;
 						inputSizeInUnitsOfEltype = (int)(bize/32); //FIXME check for exceeds int range
+					}else if("double*".equals(inType)){
+						inputEltype = double.class;
+						inputSizeInUnitsOfEltype = (int)(bize/64); //FIXME check for exceeds int range
 					}else if("int*".equals(inType)){
 						inputEltype = int.class;
 						inputSizeInUnitsOfEltype = (int)(bize/32); //FIXME check for exceeds int range
@@ -527,15 +547,17 @@ public strictfp class LazyclPrototype implements Lazycl{
 			
 			//callOpenclDependnet can do many opencl ndrange kernels before returning to CPU for lower lag,
 			//but for now just doing 1. TODO optimize
-			SortedMap<DependParam,Mem> openclReturned = opencl().callOpenclDependnet(ins, tasks, outs);
+			Map<DependParam,Mem> openclReturned = opencl().callOpenclDependnet(ins, tasks, outs);
 			Mem outMem = openclReturned.get(dependParams.get(0));
 			
+			/* its not always FloatBuffer, as of 2021-1-17+
 			//todo remove this[
 			FloatBuffer test = ((FloatBuffer)((SyMem)outMem).mem());
 			for(int i=0; i<test.capacity(); i++){
 				lg("out FloatBuffer["+i+"]="+test.get(i));
 			}
 			//]
+			*/
 			
 			outBlob = wrapb(outMem);
 		}else if("java8WithJava4Syntax".equals(lang)){

@@ -9,9 +9,9 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import immutable.lazycl.spec.Blob;
 import immutable.lazycl.spec.LazyBlob;
 import immutable.lazycl.spec.Lazycl;
+import immutable.util.Blob;
 
 /** at all times, exactly 1 of the inner Blob or Map<String,Blob> is null.
 OLD: 1 of Blob data or Supplier<Blob> eval is null at a time.

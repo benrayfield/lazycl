@@ -1,6 +1,6 @@
 /** Ben F Rayfield offers this software opensource MIT license */
 package immutable.lazycl.impl.blob;
-import immutable.lazycl.spec.Blob;
+import immutable.util.Blob;
 
 /** a blob thats wrapping an object, such as a FloatBuffer or float[] or LongBuffer or IntToLongFunction */
 public strictfp abstract class WrapBlob<T> extends AbstractBlob{

@@ -1,20 +1,46 @@
 package mutable.dependtask.mem;
+import java.lang.ref.Reference;
 import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
 
 import mutable.dependtask.DependParam;
 import mutable.dependtask.SyMem;
 
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 
 public class FSyMem extends SyMem<FloatBuffer> implements Cloneable{
 	
 	//TODO redesign so the mem is not connected to the DependParam since thats done in OpenclUtil.callOpenclDependnet
 	
-	/** todo use Util.newFloatBuffer(int)? */
+	public static final IntFunction<PointerBuffer> sizeToPointerBuffer = (int size)->BufferUtils.createPointerBuffer(size);
+	
+	/** returns FloatBuffer or LongBuffer etc. Cant return PointerBuffer cuz its not a Buffer
+	<br><br>
+	TODO use SyMem directly instead of its subclass FSyMem, cuz I'm generalizing to more primitive types,
+	and I created FSyMem when all the array params I used in opencl were float arrays.
+	*
+	public static final BiFunction<Class,Integer,Buffer> eltypeAndSizeToBuffer = (Class eltype, Integer size)->{
+		if(eltype == float.class) return BufferUtils.createFloatBuffer(size);
+		if(eltype == double.class) return BufferUtils.createDoubleBuffer(size);
+		if(eltype == int.class) return BufferUtils.createIntBuffer(size);
+		if(eltype == long.class) return BufferUtils.createLongBuffer(size);
+		if(eltype == byte.class) return BufferUtils.createByteBuffer(size);
+		if(eltype == short.class) return BufferUtils.createShortBuffer(size);
+		if(eltype == char.class) return BufferUtils.createCharBuffer(size);
+		//if(eltype == Reference.class) return BufferUtils.createPointerBuffer(size); //not a Buffer
+		throw new RuntimeException("Unknown eltype: "+eltype);
+	};*/
+	public static final IntFunction<ByteBuffer> sizeInBytesToByteBuffer = (int size)->BufferUtils.createByteBuffer(size);
+	
+	/** todo use Util.newFloatBuffer(int)? Use sizeInBytesToByteBuffer instead of FloatBuffer, todo. */
 	static final IntFunction<FloatBuffer> intToFb = (int siz)->BufferUtils.createFloatBuffer(siz);
+	//static final IntFunction<FloatBuffer> intToFb = (int siz)->(FloatBuffer)eltypeAndSizeToBuffer.apply(float.class, siz);
 	
 	public FSyMem(String comment, int size){
 		this(new DependParam(comment, float.class, size));

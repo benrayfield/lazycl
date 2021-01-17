@@ -3,6 +3,7 @@ package mutable.dependtask;
 import java.nio.FloatBuffer;
 import java.util.function.IntFunction;
 
+import mutable.dependtask.mem.FSyMem;
 import mutable.dependtask.mem.Mem;
 
 /** symbol (DependParam) and memory.
@@ -21,6 +22,9 @@ public class SyMem<T> extends Mem{
 
 	public final DependParam sy;
 	
+	/** such as FloatBuffer or float[] or CLMem but CLMem normally doesnt go here cuz
+	is encapsulated inside the OpenCL.java interface which takes Mem in params and includes them in return.
+	*/
 	protected T mem;
 	
 	/** Param is size in units of elType such as floats.
@@ -29,6 +33,20 @@ public class SyMem<T> extends Mem{
 	abstractly define but not get a copy of internal opencl calculations.
 	*/
 	protected IntFunction<T> memFactory;
+	
+	/** lazy allocates FloatBuffer, LongBuffer, etc depending on DependParam.elType and DependParam.size */
+	public SyMem(DependParam sy){
+		//Example: T is FloatBuffer.class or LongBuffer.class.
+		//this(sy, (IntFunction<T>)((int size)->(T)FSyMem.eltypeAndSizeToBuffer.apply(sy.elType,sy.size)));
+		this(
+			sy,
+			//FIXME might be expecting DoubleBuffer but get ByteBuffer of 8 times the size but in units of bytes instead of doubles,
+			//which is what I want it to return but the FIXME is to not expect Buffer types other than ByteBuffer,
+			//so SyMem<ByteBuffer> is ok and SyMem<double[]> is ok but SyMem<DoubleBuffer> is not ok,
+			//cuz ByteBufferBlob can efficiently read byte short char int float long and double (and never writes cuz is immutable).
+			(IntFunction)((int size)->FSyMem.sizeInBytesToByteBuffer.apply(sy.byteSize()))
+		);
+	}
 	
 	/** Example "T buf": a FloatBuffer or IntBuffer */
 	public SyMem(DependParam sy, T buf){

@@ -1,5 +1,5 @@
 package mutable.util;
-
+import static mutable.util.Lg.*;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -38,10 +38,12 @@ public class JReflect{
 						}
 						if(typesMatch){ //do the call
 							if(isStatic){
+								lg("JReflect.call "+m+" .. "+Arrays.asList(params));
 								return m.invoke(null, params);
 							}else{
 								Object[] allParamsExceptFirst = new Object[params.length-1];
 								System.arraycopy(params, 1, allParamsExceptFirst, 0, allParamsExceptFirst.length);
+								lg("JReflect.call "+m+" .. "+params[0]+" .. "+Arrays.asList(allParamsExceptFirst));
 								return m.invoke(params[0], allParamsExceptFirst);
 							}
 						}

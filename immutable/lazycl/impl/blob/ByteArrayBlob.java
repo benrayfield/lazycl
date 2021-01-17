@@ -38,7 +38,7 @@ public strictfp class ByteArrayBlob extends WrapBlob<byte[]>{ //TODO rename to B
 	}
 	
 	public long j(int i){
-		return ((long)i(i>>1))|(long)i((i>>1)+1);
+		return (((long)i(i<<1))<<32)|(long)i((i<<1)+1);
 	}
 
 	public long J(long bitIndex){

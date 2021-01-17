@@ -2,7 +2,8 @@ package immutable.lazycl.impl.blob;
 
 import java.nio.FloatBuffer;
 import org.lwjgl.BufferUtils;
-import immutable.lazycl.spec.Blob;
+
+import immutable.util.Blob;
 
 public abstract class AbstractBlob implements Blob{
 	

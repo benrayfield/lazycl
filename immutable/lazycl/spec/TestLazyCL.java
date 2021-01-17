@@ -14,11 +14,53 @@ public strictfp class TestLazyCL{
 		//works but dont download too often... testDownload(lz); //FIXME dont do this every time. Dont want to download too many times and get local address blocked. TODO robots.txt
 		//testDownload(lz);
 		testOpenclMatmul(lz);
+		testDoublesInCode(lz);
+		testDoublesInParams(lz);
+		/*
+		> Test pass: testDoublesInParams ins.d(1) should be 4.0
+		> Test pass: testDoublesInParams ins.d(2) should be 5.0
+		> in FloatBuffer[0]=2.125
+		> in FloatBuffer[1]=0.0
+		> in FloatBuffer[2]=2.25
+		> in FloatBuffer[3]=0.0
+		> in FloatBuffer[4]=2.3125
+		> in FloatBuffer[5]=0.0
+		> dependParamsList [dp_outs_1610892734599150900_double_siz3, dp_ins_1610892734599156700_double_siz3]
+		> dependParamSizes [3, 3]
+		> dpToPoolclmem.put dp_outs_1610892734599150900_double_siz3 [PoolCLMem id=1610892734599270600 bytes=12 clmem=CLMem pointer (0x1897BC4B260)]
+		> dpToPoolclmem.put dp_ins_1610892734599156700_double_siz3 [PoolCLMem id=1610892734599276300 bytes=12 clmem=CLMem pointer (0x1897BC4B470)]
+		> ins.size 1
+		> In dp: dp_ins_1610892734599156700_double_siz3
+		> In mem: mutable.dependtask.SyMem@57e1b0c
+		> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=6 cap=6] CLMem=CLMem pointer (0x1897BC4B470)
+		> taskSequence.size 1
+		> globalWorkSize.put 0 3
+		> set kernel param 0 to CLMem CLMem pointer (0x1897BC4B260) dp=dp_outs_1610892734599150900_double_siz3
+		> set kernel param 1 to CLMem CLMem pointer (0x1897BC4B470) dp=dp_ins_1610892734599156700_double_siz3
+		> clEnqueueNDRangeKernel for [DependOp nonsandboxedLangColonCode=opencl1.2:(global double* outs, global const double* ins){
+			int id = get_global_id(0);
+			outs[id] = ins[id]*ins[id];
+		} forkSize=mutable.dependtask.ForkSize@4232c52b numDepends=0 param=[mutable.dependtask.LockPar@61e0b7c8, mutable.dependtask.LockPar@a7b97583]]
+		> outs.size 1
+		> clEnqueueReadBuffer CLMem=CLMem pointer (0x1897BC4B260) Buffer=java.nio.DirectByteBuffer[pos=0 lim=24 cap=24], using JReflect.call...
+		> JReflect.call public static int org.lwjgl.opencl.CL10.clEnqueueReadBuffer(org.lwjgl.opencl.CLCommandQueue,org.lwjgl.opencl.CLMem,int,long,java.nio.ByteBuffer,org.lwjgl.PointerBuffer,org.lwjgl.PointerBuffer) .. [CLCommandQueue pointer (0x1897DBA2F80), CLMem pointer (0x1897BC4B260), 1, 0, java.nio.DirectByteBuffer[pos=0 lim=24 cap=24], null, null]
+		> clFinish
+		> Returning to pool: [PoolCLMem id=1610892734599270600 bytes=12 clmem=CLMem pointer (0x1897BC4B260)]
+		> Returning to pool: [PoolCLMem id=1610892734599276300 bytes=12 clmem=CLMem pointer (0x1897BC4B470)]
+		> FIXME does this need special code to free its mem?: org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1]
+		Exception in thread "main" java.lang.RuntimeException: TEST FAIL: testDoublesInParams squares3 cuz 0.0 not .equals 9.0
+			at immutable.lazycl.spec.TestLazyCL.testEq(TestLazyCL.java:39)
+			at immutable.lazycl.spec.TestLazyCL.testDoublesInParams(TestLazyCL.java:256)
+			at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:18)
+			at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+		*/
+		
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 5, 1);
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 5, 2);
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 100, 10);
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 300, 20);
 		testAcylicFlow(lz);
+		
 	}
 	
 	public static void test(String testName, boolean z){
@@ -139,13 +181,33 @@ public strictfp class TestLazyCL{
 		testEq("matmul bc cd, testB="+testB+" testD="+testD, correctSum, observedSum);
 	}
 	
+	/*public static final String sigmoidOfFloatArrayOpenclCode = TODO get it working in cpu (float)sigmoid(float) first.
+			"opencl1.2:(global float* outs, global const float* ins){\n"+
+					"	int id = get_global_id(0);\n"+
+					"	outs[id] = 1.0f/(1.0f+exp(-ins[id]));\n"+
+					"}";
+	*/
+	
+	/** TODO same bits as sigmoidOfFloatArrayOpenclCode, cuz need determinism for merkle hashing.
+	Theres a calculation of exponent of e in (double)java.lang.FdLibm.Exp.compute(double),
+	which says "should be able to forgo strictfp due to controlled over/underflow",
+	but maybe cant use that one exactly cuz it uses Double.longBitsToDouble,
+	and TODO does opencl have that op? opencl (todo which version) has as_int(float) and as_float(int) ops,
+	but what about raw vs normed form? I need the normed form.
+	If I'm already using compiler param "-cl-opt-disable" (see that string in Lwjgl.java) will it be the normed form?
+	https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf says opencl1.2 has as_int(float).
+	*/
+	public static float sigmoid(float x){
+		throw new RuntimeException("TODO");
+	}
+	
 	public static void testOpenclRecurrentNeuralnetNCyclesDeep(Lazycl lz, int nodes, int cyclesDeep){
 		LazyBlob firstNodeStates = lz.wrap(float.class, nodes, (int i)->(((i*i*i)%19f)/19f)); //range 0 to 1
 		LazyBlob nodeStates = firstNodeStates;
 		LazyBlob weights = lz.wrap(float.class, nodes*nodes, (int i)->(((i*i+17+Math.pow(i,1.5))%23f)/23f * 6 - 3)); //range -3 to 3
 		String sigmoidOfArrayCode = "opencl1.2:(global float* outs, global const float* ins){\n"+
 			"	int id = get_global_id(0);\n"+
-			"	outs[id] = 1.0f/(1.0f+exp(-ins[id]));\n"+
+			"	outs[id] = 1.0f/(1.0f+(float)exp(-(double)ins[id]));\n"+
 			"}";
 		for(int cycle=0; cycle<cyclesDeep; cycle++){
 			//matmul then sigmoid. its a [1*nodes] by [nodes*nodes] matmul in this simple test.
@@ -161,6 +223,7 @@ public strictfp class TestLazyCL{
 				"cd", weights
 			);
 			nodeStates = lz.lazycl(
+				//TODO "Code", sigmoidOfFloatArrayOpenclCode,
 				"Code", sigmoidOfArrayCode,
 				"Bize", nodes*32L, //float is 32 bits
 				"GlobalSize", nodes,
@@ -202,6 +265,56 @@ public strictfp class TestLazyCL{
 		lg("nodeStates.bize = "+nodeStates.bize());
 		
 		throw new RuntimeException("TODO firstNodeStates.f(20)="+firstNodeStates.f(20)+" nodeStates.f(20)="+nodeStates.f(20));
+	}
+	
+	public static void testDoublesInParams(Lazycl lz){
+		double[] insDoubleArray = new double[]{3, 4, 5};
+		int doubles = insDoubleArray.length;
+		LazyBlob ins = lz.wrapc(new double[]{3, 4, 5});
+		//check with https://www.binaryconvert.com/result_double.html?decimal=051
+		//says 3. is 0x4008000000000000
+		testEq("testDoublesInParams ins.b(0) should be (byte)0x40", ins.b(0), (byte)0x40);
+		testEq("testDoublesInParams ins.b(1) should be (byte)0x08", ins.b(1), (byte)0x08);
+		testEq("testDoublesInParams ins.b(2) should be (byte)0x00", ins.b(2), (byte)0x00);
+		testEq("testDoublesInParams ins.b(7) should be (byte)0x00", ins.b(7), (byte)0x00);
+		testEq("testDoublesInParams ins.d(0) should be 3.0", ins.d(0), 3.);
+		testEq("testDoublesInParams ins.d(1) should be 4.0", ins.d(1), 4.);
+		testEq("testDoublesInParams ins.d(2) should be 5.0", ins.d(2), 5.);
+		LazyBlob squares = lz.lazycl(
+			"Code",
+				"opencl1.2:(global double* outs, global const double* ins){\n"+
+				"	int id = get_global_id(0);\n"+
+				"	outs[id] = ins[id]*ins[id];\n"+
+				"}",
+			"Bize", doubles*64L,
+			"GlobalSize", doubles,
+			//TODO also use LocalSize of new int[]{32,32} or 32, and GlobalSize of new int[]{something,32}
+			//"ins", new double[]{3, 4, 5}
+			"ins", ins
+		);
+		testEq("testDoublesInParams squares3", squares.d(0), 9.);
+		testEq("testDoublesInParams squares4", squares.d(1), 16.);
+		testEq("testDoublesInParams squares5", squares.d(2), 25.);
+	}
+	
+	public static void testDoublesInCode(Lazycl lz){
+		int size = 3;
+		LazyBlob squares = lz.lazycl(
+			"Code",
+				"opencl1.2:(global float* outs, global const float* ins){\n"+
+				"	int id = get_global_id(0);\n"+
+				"	double x = (double)ins[id];\n"+
+				"	x = x*x;\n"+
+				"	outs[id] = (float)x;\n"+
+				"}",
+			"Bize", size*32L,
+			"GlobalSize", size,
+			//TODO also use LocalSize of new int[]{32,32} or 32, and GlobalSize of new int[]{something,32}
+			"ins", new float[]{3, 4, 5}
+		);
+		testEq("testDoublesInCode squares3", squares.f(0), 9f);
+		testEq("testDoublesInCode squares4", squares.f(1), 16f);
+		testEq("testDoublesInCode squares5", squares.f(2), 25f);
 	}
 
 }

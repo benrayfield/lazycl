@@ -37,7 +37,7 @@ public interface OpenCL{
 	/** /** FIXME upgrade the pool to garbcol. As of 2020-4-12 it only allocates and shares them
 	but will run out of memory if a variety of sizes keep being requested
 	since the earlier requested sizes wont be garbcoled.
-	<br><br> 
+	<br><br>
 	The Mems input and output are self contained such as ArrayMem,
 	but (TODO) I'm undecided exactly which subtype(s) of Mem.
 	<br><br>
@@ -65,8 +65,10 @@ public interface OpenCL{
 	similar to callOpenclForest except this is more optimizable
 	as it can use the same CLMem multiple times and simultaneously read and write it.
 	callOpenclForest maybe should call this.
+	<br><br>
+	
 	*/
-	public SortedMap<DependParam,Mem> callOpenclDependnet(
+	public Map<DependParam,Mem> callOpenclDependnet(
 		Map<DependParam,Mem> ins, Set<DependOp> tasks, Set<DependParam> outs);
 	
 	/** Does 1 opencl ndrange kernel call. This is the older function, that has int[] globalSize

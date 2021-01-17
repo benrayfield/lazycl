@@ -21,6 +21,10 @@ public abstract class Mem{
 			return size*4;
 		}else if(elType == double.class || elType == long.class){
 			return size*8;
+		}else if(elType == short.class || elType == char.class){
+			return size*2;
+		}else if(elType == byte.class){
+			return size;
 		}else{
 			throw new Error("TODO elType "+elType);
 		}
