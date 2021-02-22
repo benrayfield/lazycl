@@ -1,5 +1,6 @@
 package immutable.lazycl.impl.blob;
 
+import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import org.lwjgl.BufferUtils;
 
@@ -23,6 +24,12 @@ public abstract class AbstractBlob implements Blob{
 			if(sizeInUnitsOfPrims<<5 != biz) throw new RuntimeException("TODO not aligned on blocks of float size");
 			FloatBuffer ret = BufferUtils.createFloatBuffer(sizeInUnitsOfPrims); //FIXME move this out of spec and into an impl
 			for(int i=0; i<sizeInUnitsOfPrims; i++) ret.put(i, f(i));
+			return (T)ret;
+		}else if(type == DoubleBuffer.class){
+			int sizeInUnitsOfPrims = (int)(biz>>6);
+			if(sizeInUnitsOfPrims<<6 != biz) throw new RuntimeException("TODO not aligned on blocks of double size");
+			DoubleBuffer ret = BufferUtils.createDoubleBuffer(sizeInUnitsOfPrims); //FIXME move this out of spec and into an impl
+			for(int i=0; i<sizeInUnitsOfPrims; i++) ret.put(i, d(i));
 			return (T)ret;
 		}if(type == int[].class){
 			int sizeInUnitsOfPrims = (int)(biz>>5);

@@ -24,6 +24,7 @@ public class SyMem<T> extends Mem{
 	
 	/** such as FloatBuffer or float[] or CLMem but CLMem normally doesnt go here cuz
 	is encapsulated inside the OpenCL.java interface which takes Mem in params and includes them in return.
+	TODO also DoubleBuffer, IntBuffer, LongBuffer, etc.
 	*/
 	protected T mem;
 	

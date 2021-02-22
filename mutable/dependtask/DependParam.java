@@ -39,7 +39,7 @@ public class DependParam extends Mem implements Cloneable, Comparable<DependPara
 	}
 	
 	public String toString(){
-		return "dp_"+comment+"_"+id+"_"+elType.getName()+"_siz"+size;
+		return numOrNull!=null ? "dp_literal_"+numOrNull :"dp_"+comment+"_"+id+"_"+elType.getName()+"_siz"+size;
 	}
 	
 	public boolean equals(Object obj){

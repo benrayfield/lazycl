@@ -3,6 +3,7 @@ a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to d
 
 This is how you use Lazycl (notice the "test pass" before the next test fails):
 
+OLD (see floats and doubles passing tests farther below, the few pages of output at the end of readme)...
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
 ```
 2020-12-28 In TestLazyCL.java the first matrix multiply test passed, but its not well optimized yet (cuz still refactoring optimized code from humanAiNetNeural).
@@ -15,6 +16,7 @@ java.lang.RuntimeException: TODO
 	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:12)
 	at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
 ```
+
 
 
 
@@ -203,4 +205,348 @@ Its supposedly a 9585 gflop card (as https://en.wikipedia.org/wiki/List_of_Nvidi
 Strange... I changed the += x to += x * x * x * x * x and it only did slightly less loops per second (289 billion) but 5 times more "work" (or 4 times if it did z = x * x and z * z * x) per loop body as its a plus and 4 multiplies, which is 1.1 to 1.4 teraflops.
 
 Whatever the reason those expected and observed speeds dont match, it is enough computing power to do what I need for now.
+
+
+
+
+
+Float and double tests pass...
+```
+> FIXME gargcol Lwjgl.errorBuff in finalize()?WARNING: An illegal reflective access operation has occurred
+WARNING: Illegal reflective access by org.lwjgl.LWJGLUtil$3 (file:/Z:/q/q35x/w/e6/lazycl_todo3dMandelbrot_frozenDevelopInNonsandboxedtreeexperiment/src/data/lib/lwjgl.jar) to method java.lang.ClassLoader.findLibrary(java.lang.String)
+WARNING: Please consider reporting this to the maintainers of org.lwjgl.LWJGLUtil$3
+WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+WARNING: All illegal access operations will be denied in a future release
+> 
+Lwjgl.java device (CLDevice pointer (0x18809A6E660)) capabilities: OpenCL 1.2 - Extensions: cl_khr_byte_addressable_store cl_khr_fp64 cl_khr_gl_sharing cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_int64_base_atomics cl_khr_int64_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll 
+
+> clCreateBuffer context CL_MEM_READ_ONLY 4 erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[0]=java.nio.DirectFloatBufferU[pos=0 lim=1 cap=1] isWrite=true p=[F@5383967b
+> FloatBuffer put float[] then rewind
+> clCreateBuffer context CL10.CL_MEM_WRITE_ONLY|CL10.CL_MEM_COPY_HOST_PTR java.nio.DirectFloatBufferU[pos=0 lim=2 cap=2] erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[1]=java.nio.DirectFloatBufferU[pos=0 lim=2 cap=2] isWrite=false p=[F@2ac273d3
+> PointerBuffer globalWorkSize
+> globalWorkSize put 0 1
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x1881BC9B4D0) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer queue CLMem pointer (0x1880AA1D110) CL_TRUE 0 java.nio.DirectFloatBufferU[pos=0 lim=1 cap=1] null, null
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> return [[F@71423665, [F@20398b7c]
+> Test pass: testOpencl_sum2Floats
+> Testing with random arrays...
+> clCreateBuffer context CL_MEM_READ_ONLY 14000 erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[0]=java.nio.DirectFloatBufferU[pos=0 lim=3500 cap=3500] isWrite=true p=[F@3b0143d3
+> buffers[1]=null isWrite=false p=50
+> buffers[2]=null isWrite=false p=30
+> buffers[3]=null isWrite=false p=70
+> FloatBuffer put float[] then rewind
+> clCreateBuffer context CL10.CL_MEM_WRITE_ONLY|CL10.CL_MEM_COPY_HOST_PTR java.nio.DirectFloatBufferU[pos=0 lim=1500 cap=1500] erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[4]=java.nio.DirectFloatBufferU[pos=0 lim=1500 cap=1500] isWrite=false p=[F@5a8e6209
+> FloatBuffer put float[] then rewind
+> clCreateBuffer context CL10.CL_MEM_WRITE_ONLY|CL10.CL_MEM_COPY_HOST_PTR java.nio.DirectFloatBufferU[pos=0 lim=2100 cap=2100] erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[5]=java.nio.DirectFloatBufferU[pos=0 lim=2100 cap=2100] isWrite=false p=[F@4b4523f8
+> PointerBuffer globalWorkSize
+> globalWorkSize put 0 3500
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x1881BD75210) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer queue CLMem pointer (0x1880AA1D320) CL_TRUE 0 java.nio.DirectFloatBufferU[pos=0 lim=3500 cap=3500] null, null
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> copy param 2 from (somekindof)Buffer to array
+> copy param 3 from (somekindof)Buffer to array
+> copy param 4 from (somekindof)Buffer to array
+> copy param 5 from (somekindof)Buffer to array
+> return [[F@731a74c, 50, 30, 70, [F@369f73a2, [F@1f28c152]
+> testOpencl_matmulFloat matmul passed !strictfp, stdDevOfErr=0.0 sumOfSquaresOfCpu=95964.89942961474 sumOfSquaresOfOpencl=95964.89942961474
+> testOpencl_matmulFloat matmul passed strictfp
+> Testing with random arrays...
+> clCreateBuffer context CL_MEM_READ_ONLY 14000 erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[0]=java.nio.DirectFloatBufferU[pos=0 lim=3500 cap=3500] isWrite=true p=[F@7791a895
+> buffers[1]=null isWrite=false p=50
+> buffers[2]=null isWrite=false p=30
+> buffers[3]=null isWrite=false p=70
+> FloatBuffer put float[] then rewind
+> clCreateBuffer context CL10.CL_MEM_WRITE_ONLY|CL10.CL_MEM_COPY_HOST_PTR java.nio.DirectFloatBufferU[pos=0 lim=1500 cap=1500] erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[4]=java.nio.DirectFloatBufferU[pos=0 lim=1500 cap=1500] isWrite=false p=[F@3a5ed7a6
+> FloatBuffer put float[] then rewind
+> clCreateBuffer context CL10.CL_MEM_WRITE_ONLY|CL10.CL_MEM_COPY_HOST_PTR java.nio.DirectFloatBufferU[pos=0 lim=2100 cap=2100] erbuf=java.nio.DirectIntBufferU[pos=0 lim=1 cap=1]
+> checkCLError
+> buffers[5]=java.nio.DirectFloatBufferU[pos=0 lim=2100 cap=2100] isWrite=false p=[F@6325a3ee
+> PointerBuffer globalWorkSize
+> globalWorkSize put 0 3500
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x1881BD75210) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer queue CLMem pointer (0x1880AA1E190) CL_TRUE 0 java.nio.DirectFloatBufferU[pos=0 lim=3500 cap=3500] null, null
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> copy param 2 from (somekindof)Buffer to array
+> copy param 3 from (somekindof)Buffer to array
+> copy param 4 from (somekindof)Buffer to array
+> copy param 5 from (somekindof)Buffer to array
+> return [[F@1d16f93d, 50, 30, 70, [F@67b92f0a, [F@2b9627bc]
+> testOpencl_matmulFloat matmul passed !strictfp, stdDevOfErr=0.0 sumOfSquaresOfCpu=106322.57624335376 sumOfSquaresOfOpencl=106322.57624335376
+> testOpencl_matmulFloat matmul passed strictfp
+> not logging details of doubles
+> buffers[0]=java.nio.DirectDoubleBufferU[pos=0 lim=1 cap=1] isWrite=true p=[D@65e2dbf3
+> not logging details of doubles
+> buffers[1]=java.nio.DirectDoubleBufferU[pos=0 lim=2 cap=2] isWrite=false p=[D@4f970963
+> PointerBuffer globalWorkSize
+> globalWorkSize put 0 1
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x1881BD746D0) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer doubles
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> return [[D@61f8bee4, [D@7b49cea0]
+> Test pass: testOpencl_sum2Doubles
+> Testing with random arrays...
+> not logging details of doubles
+> buffers[0]=java.nio.DirectDoubleBufferU[pos=0 lim=3500 cap=3500] isWrite=true p=[D@887af79
+> buffers[1]=null isWrite=false p=50
+> buffers[2]=null isWrite=false p=30
+> buffers[3]=null isWrite=false p=70
+> not logging details of doubles
+> buffers[4]=java.nio.DirectDoubleBufferU[pos=0 lim=1500 cap=1500] isWrite=false p=[D@7fac631b
+> not logging details of doubles
+> buffers[5]=java.nio.DirectDoubleBufferU[pos=0 lim=2100 cap=2100] isWrite=false p=[D@5b87ed94
+> PointerBuffer globalWorkSize
+> globalWorkSize put 0 3500
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x1881BD74E50) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer doubles
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> copy param 2 from (somekindof)Buffer to array
+> copy param 3 from (somekindof)Buffer to array
+> copy param 4 from (somekindof)Buffer to array
+> copy param 5 from (somekindof)Buffer to array
+> return [[D@6e0e048a, 50, 30, 70, [D@5bc79255, [D@47ef968d]
+> testOpencl_matmulDouble matmul passed, stdDevOfErr=0.0 sumOfSquaresOfCpu=110839.07105534943 sumOfSquaresOfOpencl=110839.07105534943
+> Testing with random arrays...
+> not logging details of doubles
+> buffers[0]=java.nio.DirectDoubleBufferU[pos=0 lim=3500 cap=3500] isWrite=true p=[D@23e028a9
+> buffers[1]=null isWrite=false p=50
+> buffers[2]=null isWrite=false p=30
+> buffers[3]=null isWrite=false p=70
+> not logging details of doubles
+> buffers[4]=java.nio.DirectDoubleBufferU[pos=0 lim=1500 cap=1500] isWrite=false p=[D@3dd4520b
+> not logging details of doubles
+> buffers[5]=java.nio.DirectDoubleBufferU[pos=0 lim=2100 cap=2100] isWrite=false p=[D@5ae63ade
+> PointerBuffer globalWorkSize
+> globalWorkSize put 0 3500
+> clEnqueueNDRangeKernel queue CLKernel pointer (0x1881BD74E50) 1 null org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1] null null null
+> clEnqueueReadBuffer doubles
+> clFinish queue
+> copy param 0 from (somekindof)Buffer to array
+> copy param 1 from (somekindof)Buffer to array
+> copy param 2 from (somekindof)Buffer to array
+> copy param 3 from (somekindof)Buffer to array
+> copy param 4 from (somekindof)Buffer to array
+> copy param 5 from (somekindof)Buffer to array
+> return [[D@610694f1, 50, 30, 70, [D@43814d18, [D@5c5a1b69]
+> testOpencl_matmulDouble matmul passed, stdDevOfErr=0.0 sumOfSquaresOfCpu=100686.95643520005 sumOfSquaresOfOpencl=100686.95643520005
+> TODOS: [TODO upgrade callOpenclDependnet to use multiple CLQueue to run multiple kernels in parallel when dependnet allows and when theres enough gpu threads. As of 2020-5-4 it looks at Set<DependOp> and chooses a sequence, only doing 1 kernel at a time, and a kernel can have many gpu threads, but sometimes a kernel has less gpu threads than the hardware supports or could be optimized by doing multiple kernels in parallel for some other reason.] ENDTODOS.
+> dependParamsList [dp_bdOut_1614007427714005700_float_siz1000, dp_literal_50, dp_literal_20, dp_cd_1614007427715202000_float_siz1500, dp_bc_1614007427714845600_float_siz600, dp_literal_30]
+> dependParamSizes [1000, null, null, 1500, 600, null]
+> dependParamsSizesInBytes [4000, null, null, 6000, 2400, null]
+> dpToPoolclmem.put dp_bdOut_1614007427714005700_float_siz1000 [PoolCLMem id=1614007427716681100 bytes=4000 clmem=CLMem pointer (0x1880AA1DB60)]
+> dpToPoolclmem.put dp_cd_1614007427715202000_float_siz1500 [PoolCLMem id=1614007427716691800 bytes=6000 clmem=CLMem pointer (0x1880AA1DF80)]
+> dpToPoolclmem.put dp_bc_1614007427714845600_float_siz600 [PoolCLMem id=1614007427716696000 bytes=2400 clmem=CLMem pointer (0x1880AA1E190)]
+> ins.size 5
+> In dp: dp_literal_20
+> In mem: dp_literal_20
+> Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: dp_literal_20
+> In dp: dp_literal_30
+> In mem: dp_literal_30
+> Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: dp_literal_30
+> In dp: dp_literal_50
+> In mem: dp_literal_50
+> Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: dp_literal_50
+> In dp: dp_bc_1614007427714845600_float_siz600
+> In mem: mutable.dependtask.SyMem@42d8062c
+> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=600 cap=600] CLMem=CLMem pointer (0x1880AA1E190)
+> In dp: dp_cd_1614007427715202000_float_siz1500
+> In mem: mutable.dependtask.SyMem@6043cd28
+> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=1500 cap=1500] CLMem=CLMem pointer (0x1880AA1DF80)
+> taskSequence.size 1
+> globalWorkSize.put 0 1000
+> set kernel param 0 to CLMem CLMem pointer (0x1880AA1DB60) dp=dp_bdOut_1614007427714005700_float_siz1000
+> set kernel param 1 to Number 20
+> set kernel param 2 to Number 30
+> set kernel param 3 to Number 50
+> set kernel param 4 to CLMem CLMem pointer (0x1880AA1E190) dp=dp_bc_1614007427714845600_float_siz600
+> set kernel param 5 to CLMem CLMem pointer (0x1880AA1DF80) dp=dp_cd_1614007427715202000_float_siz1500
+> clEnqueueNDRangeKernel for [DependOp nonsandboxedLangColonCode=opencl1.2:(global float* bdOut, int const bSize, int const cSize, int const dSize, global const float* bc, global const float* cd){
+	int bd = get_global_id(0);
+	const int b = bd/dSize;
+	const int d = bd%dSize;
+	float sum = 0;
+	for(int c=0; c<cSize; c++){
+		sum += bc[b*cSize+c]*cd[c*dSize+d];
+	}
+	bdOut[bd] = sum;
+} forkSize=mutable.dependtask.ForkSize@cb51256 numDepends=0 param=[mutable.dependtask.LockPar@9f127368, mutable.dependtask.LockPar@70fc86c9, mutable.dependtask.LockPar@6a8335b7, mutable.dependtask.LockPar@85b1be6f, mutable.dependtask.LockPar@bc244394, mutable.dependtask.LockPar@cd0fa2ae]]
+> outs.size 1
+> clEnqueueReadBuffer CLMem=CLMem pointer (0x1880AA1DB60) Buffer=java.nio.DirectByteBuffer[pos=0 lim=4000 cap=4000], using JReflect.call...
+> JReflect.call public static int org.lwjgl.opencl.CL10.clEnqueueReadBuffer(org.lwjgl.opencl.CLCommandQueue,org.lwjgl.opencl.CLMem,int,long,java.nio.ByteBuffer,org.lwjgl.PointerBuffer,org.lwjgl.PointerBuffer) .. [CLCommandQueue pointer (0x1880A72D2D0), CLMem pointer (0x1880AA1DB60), 1, 0, java.nio.DirectByteBuffer[pos=0 lim=4000 cap=4000], null, null]
+> clFinish
+> Returning to pool: [PoolCLMem id=1614007427716681100 bytes=4000 clmem=CLMem pointer (0x1880AA1DB60)]
+> Returning to pool: [PoolCLMem id=1614007427716691800 bytes=6000 clmem=CLMem pointer (0x1880AA1DF80)]
+> Returning to pool: [PoolCLMem id=1614007427716696000 bytes=2400 clmem=CLMem pointer (0x1880AA1E190)]
+> FIXME does this need special code to free its mem?: org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1]
+> Test pass: matmul bc cd, testB=7 testD=15
+> dependParamsList [dp_ins_1614007427727710000_float_siz3, dp_outs_1614007427727700600_float_siz3]
+> dependParamSizes [3, 3]
+> dependParamsSizesInBytes [12, 12]
+> dpToPoolclmem.put dp_ins_1614007427727710000_float_siz3 [PoolCLMem id=1614007427727921600 bytes=12 clmem=CLMem pointer (0x1881CF39210)]
+> dpToPoolclmem.put dp_outs_1614007427727700600_float_siz3 [PoolCLMem id=1614007427727932700 bytes=12 clmem=CLMem pointer (0x1881CF37B60)]
+> ins.size 1
+> In dp: dp_ins_1614007427727710000_float_siz3
+> In mem: mutable.dependtask.SyMem@47db50c5
+> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=3 cap=3] CLMem=CLMem pointer (0x1881CF39210)
+> taskSequence.size 1
+> globalWorkSize.put 0 3
+> set kernel param 0 to CLMem CLMem pointer (0x1881CF37B60) dp=dp_outs_1614007427727700600_float_siz3
+> set kernel param 1 to CLMem CLMem pointer (0x1881CF39210) dp=dp_ins_1614007427727710000_float_siz3
+> clEnqueueNDRangeKernel for [DependOp nonsandboxedLangColonCode=opencl1.2:(global float* outs, global const float* ins){
+	int id = get_global_id(0);
+	double x = (double)ins[id];
+	x = x*x;
+	outs[id] = (float)x;
+} forkSize=mutable.dependtask.ForkSize@5c072e3f numDepends=0 param=[mutable.dependtask.LockPar@c144cd00, mutable.dependtask.LockPar@6c9c270f]]
+> outs.size 1
+> clEnqueueReadBuffer CLMem=CLMem pointer (0x1881CF37B60) Buffer=java.nio.DirectByteBuffer[pos=0 lim=12 cap=12], using JReflect.call...
+> JReflect.call public static int org.lwjgl.opencl.CL10.clEnqueueReadBuffer(org.lwjgl.opencl.CLCommandQueue,org.lwjgl.opencl.CLMem,int,long,java.nio.ByteBuffer,org.lwjgl.PointerBuffer,org.lwjgl.PointerBuffer) .. [CLCommandQueue pointer (0x1880A72D2D0), CLMem pointer (0x1881CF37B60), 1, 0, java.nio.DirectByteBuffer[pos=0 lim=12 cap=12], null, null]
+> clFinish
+> Returning to pool: [PoolCLMem id=1614007427727921600 bytes=12 clmem=CLMem pointer (0x1881CF39210)]
+> Returning to pool: [PoolCLMem id=1614007427727932700 bytes=12 clmem=CLMem pointer (0x1881CF37B60)]
+> FIXME does this need special code to free its mem?: org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1]
+> Test pass: testDoublesInCode squares3
+> Test pass: testDoublesInCode squares4
+> Test pass: testDoublesInCode squares5
+> Test pass: testDoublesInParams ins.b(0) should be (byte)0x40
+> Test pass: testDoublesInParams ins.b(1) should be (byte)0x08
+> Test pass: testDoublesInParams ins.b(2) should be (byte)0x00
+> Test pass: testDoublesInParams ins.b(7) should be (byte)0x00
+> Test pass: testDoublesInParams ins.d(0) should be 3.0
+> Test pass: testDoublesInParams ins.d(1) should be 4.0
+> Test pass: testDoublesInParams ins.d(2) should be 5.0
+> dependParamsList [dp_ins_1614007427730242300_double_siz3, dp_outs_1614007427730235000_double_siz3]
+> dependParamSizes [3, 3]
+> dependParamsSizesInBytes [24, 24]
+> dpToPoolclmem.put dp_ins_1614007427730242300_double_siz3 [PoolCLMem id=1614007427730526900 bytes=24 clmem=CLMem pointer (0x1881CF39A50)]
+> dpToPoolclmem.put dp_outs_1614007427730235000_double_siz3 [PoolCLMem id=1614007427730538100 bytes=24 clmem=CLMem pointer (0x1881CF37F80)]
+> ins.size 1
+> In dp: dp_ins_1614007427730242300_double_siz3
+> In mem: mutable.dependtask.SyMem@306279ee
+> clEnqueueWriteBuffer DoubleBuffer=java.nio.DirectDoubleBufferU[pos=0 lim=3 cap=3] CLMem=CLMem pointer (0x1881CF39A50)
+> taskSequence.size 1
+> globalWorkSize.put 0 3
+> set kernel param 0 to CLMem CLMem pointer (0x1881CF37F80) dp=dp_outs_1614007427730235000_double_siz3
+> set kernel param 1 to CLMem CLMem pointer (0x1881CF39A50) dp=dp_ins_1614007427730242300_double_siz3
+> clEnqueueNDRangeKernel for [DependOp nonsandboxedLangColonCode=opencl1.2:(global double* outs, global const double* ins){
+	int id = get_global_id(0);
+	outs[id] = ins[id]*ins[id];
+} forkSize=mutable.dependtask.ForkSize@545997b1 numDepends=0 param=[mutable.dependtask.LockPar@d1a8cf87, mutable.dependtask.LockPar@a416076e]]
+> outs.size 1
+> clEnqueueReadBuffer CLMem=CLMem pointer (0x1881CF37F80) Buffer=java.nio.DirectByteBuffer[pos=0 lim=24 cap=24], using JReflect.call...
+> JReflect.call public static int org.lwjgl.opencl.CL10.clEnqueueReadBuffer(org.lwjgl.opencl.CLCommandQueue,org.lwjgl.opencl.CLMem,int,long,java.nio.ByteBuffer,org.lwjgl.PointerBuffer,org.lwjgl.PointerBuffer) .. [CLCommandQueue pointer (0x1880A72D2D0), CLMem pointer (0x1881CF37F80), 1, 0, java.nio.DirectByteBuffer[pos=0 lim=24 cap=24], null, null]
+> clFinish
+> Returning to pool: [PoolCLMem id=1614007427730526900 bytes=24 clmem=CLMem pointer (0x1881CF39A50)]
+> Returning to pool: [PoolCLMem id=1614007427730538100 bytes=24 clmem=CLMem pointer (0x1881CF37F80)]
+> FIXME does this need special code to free its mem?: org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1]
+> Test pass: testDoublesInParams squares3
+> Test pass: testDoublesInParams squares4
+> Test pass: testDoublesInParams squares5
+> dependParamsList [dp_cd_1614007427734248300_float_siz25, dp_literal_5, dp_literal_1, dp_literal_5, dp_bdOut_1614007427734206200_float_siz5, dp_bc_1614007427734224000_float_siz5]
+> dependParamSizes [25, null, null, null, 5, 5]
+> dependParamsSizesInBytes [100, null, null, null, 20, 20]
+> dpToPoolclmem.put dp_cd_1614007427734248300_float_siz25 [PoolCLMem id=1614007427734430500 bytes=100 clmem=CLMem pointer (0x1881CF37D70)]
+> dpToPoolclmem.put dp_bdOut_1614007427734206200_float_siz5 [PoolCLMem id=1614007427734480200 bytes=20 clmem=CLMem pointer (0x1881CF39000)]
+> dpToPoolclmem.put dp_bc_1614007427734224000_float_siz5 [PoolCLMem id=1614007427734488500 bytes=20 clmem=CLMem pointer (0x1881CF383A0)]
+> ins.size 5
+> In dp: dp_literal_1
+> In mem: dp_literal_1
+> Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: dp_literal_1
+> In dp: dp_literal_5
+> In mem: dp_literal_5
+> Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: dp_literal_5
+> In dp: dp_literal_5
+> In mem: dp_literal_5
+> Its a DependParam so is byValue so no enqueueCopyBufferToCLMem: dp_literal_5
+> In dp: dp_bc_1614007427734224000_float_siz5
+> In mem: mutable.dependtask.SyMem@5579bb86
+> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=5 cap=5] CLMem=CLMem pointer (0x1881CF383A0)
+> In dp: dp_cd_1614007427734248300_float_siz25
+> In mem: mutable.dependtask.SyMem@5204062d
+> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=25 cap=25] CLMem=CLMem pointer (0x1881CF37D70)
+> taskSequence.size 1
+> globalWorkSize.put 0 5
+> set kernel param 0 to CLMem CLMem pointer (0x1881CF39000) dp=dp_bdOut_1614007427734206200_float_siz5
+> set kernel param 1 to Number 1
+> set kernel param 2 to Number 5
+> set kernel param 3 to Number 5
+> set kernel param 4 to CLMem CLMem pointer (0x1881CF383A0) dp=dp_bc_1614007427734224000_float_siz5
+> set kernel param 5 to CLMem CLMem pointer (0x1881CF37D70) dp=dp_cd_1614007427734248300_float_siz25
+> clEnqueueNDRangeKernel for [DependOp nonsandboxedLangColonCode=opencl1.2:(global float* bdOut, int const bSize, int const cSize, int const dSize, global const float* bc, global const float* cd){
+	int bd = get_global_id(0);
+	const int b = bd/dSize;
+	const int d = bd%dSize;
+	float sum = 0;
+	for(int c=0; c<cSize; c++){
+		sum += bc[b*cSize+c]*cd[c*dSize+d];
+	}
+	bdOut[bd] = sum;
+} forkSize=mutable.dependtask.ForkSize@4fcd19b3 numDepends=0 param=[mutable.dependtask.LockPar@8b898a0c, mutable.dependtask.LockPar@8b067922, mutable.dependtask.LockPar@8d978462, mutable.dependtask.LockPar@6bc95690, mutable.dependtask.LockPar@83d00748, mutable.dependtask.LockPar@b8141afe]]
+> outs.size 1
+> clEnqueueReadBuffer CLMem=CLMem pointer (0x1881CF39000) Buffer=java.nio.DirectByteBuffer[pos=0 lim=20 cap=20], using JReflect.call...
+> JReflect.call public static int org.lwjgl.opencl.CL10.clEnqueueReadBuffer(org.lwjgl.opencl.CLCommandQueue,org.lwjgl.opencl.CLMem,int,long,java.nio.ByteBuffer,org.lwjgl.PointerBuffer,org.lwjgl.PointerBuffer) .. [CLCommandQueue pointer (0x1880A72D2D0), CLMem pointer (0x1881CF39000), 1, 0, java.nio.DirectByteBuffer[pos=0 lim=20 cap=20], null, null]
+> clFinish
+> Returning to pool: [PoolCLMem id=1614007427734430500 bytes=100 clmem=CLMem pointer (0x1881CF37D70)]
+> Returning to pool: [PoolCLMem id=1614007427734480200 bytes=20 clmem=CLMem pointer (0x1881CF39000)]
+> Returning to pool: [PoolCLMem id=1614007427734488500 bytes=20 clmem=CLMem pointer (0x1881CF383A0)]
+> FIXME does this need special code to free its mem?: org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1]
+> dependParamsList [dp_ins_1614007427735895300_float_siz5, dp_outs_1614007427735880000_float_siz5]
+> dependParamSizes [5, 5]
+> dependParamsSizesInBytes [20, 20]
+> dpToPoolclmem.put dp_ins_1614007427735895300_float_siz5 [PoolCLMem id=1614007427736035500 bytes=20 clmem=CLMem pointer (0x1881CF39420)]
+> dpToPoolclmem.put dp_outs_1614007427735880000_float_siz5 [PoolCLMem id=1614007427736049900 bytes=20 clmem=CLMem pointer (0x1881CF39630)]
+> ins.size 1
+> In dp: dp_ins_1614007427735895300_float_siz5
+> In mem: mutable.dependtask.SyMem@5fdba6f9
+> clEnqueueWriteBuffer FloatBuffer=java.nio.DirectFloatBufferU[pos=0 lim=5 cap=5] CLMem=CLMem pointer (0x1881CF39420)
+> taskSequence.size 1
+> globalWorkSize.put 0 5
+> set kernel param 0 to CLMem CLMem pointer (0x1881CF39630) dp=dp_outs_1614007427735880000_float_siz5
+> set kernel param 1 to CLMem CLMem pointer (0x1881CF39420) dp=dp_ins_1614007427735895300_float_siz5
+> clEnqueueNDRangeKernel for [DependOp nonsandboxedLangColonCode=opencl1.2:(global float* outs, global const float* ins){
+	int id = get_global_id(0);
+	outs[id] = 1.0f/(1.0f+(float)exp(-(double)ins[id]));
+} forkSize=mutable.dependtask.ForkSize@10d59286 numDepends=0 param=[mutable.dependtask.LockPar@64cdd6a7, mutable.dependtask.LockPar@731d02c4]]
+> outs.size 1
+> clEnqueueReadBuffer CLMem=CLMem pointer (0x1881CF39630) Buffer=java.nio.DirectByteBuffer[pos=0 lim=20 cap=20], using JReflect.call...
+> JReflect.call public static int org.lwjgl.opencl.CL10.clEnqueueReadBuffer(org.lwjgl.opencl.CLCommandQueue,org.lwjgl.opencl.CLMem,int,long,java.nio.ByteBuffer,org.lwjgl.PointerBuffer,org.lwjgl.PointerBuffer) .. [CLCommandQueue pointer (0x1880A72D2D0), CLMem pointer (0x1881CF39630), 1, 0, java.nio.DirectByteBuffer[pos=0 lim=20 cap=20], null, null]
+> clFinish
+> Returning to pool: [PoolCLMem id=1614007427736035500 bytes=20 clmem=CLMem pointer (0x1881CF39420)]
+> Returning to pool: [PoolCLMem id=1614007427736049900 bytes=20 clmem=CLMem pointer (0x1881CF39630)]
+> FIXME does this need special code to free its mem?: org.lwjgl.PointerBuffer[pos=0 lim=1 cap=1]
+> node0_of_5 openclOutForNode=0.08617278 cpuOutForNode=0.08617278
+> node1_of_5 openclOutForNode=0.46299192 cpuOutForNode=0.46299192
+> node2_of_5 openclOutForNode=0.48675504 cpuOutForNode=0.48675504
+> node3_of_5 openclOutForNode=0.14655071 cpuOutForNode=0.14655071
+> node4_of_5 openclOutForNode=0.44410244 cpuOutForNode=0.4441024
+Exception in thread "main" java.lang.RuntimeException: node4_of_5 openclOutForNode=0.44410244 cpuOutForNode=0.4441024 diff=2.9802322E-8 If its very close, check for strictfp differences in different systems or the use of different algorithms to approximate exponents of e or things like that
+	at immutable.lazycl.spec.TestLazyCL.testOpenclRecurrentNeuralnetNCyclesDeep(TestLazyCL.java:260)
+	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:59)
+	at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+```
+
 

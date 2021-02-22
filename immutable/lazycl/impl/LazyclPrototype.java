@@ -29,7 +29,9 @@ import mutable.downloader.Download;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -503,19 +505,24 @@ public strictfp class LazyclPrototype implements Lazycl{
 					int inputSizeInUnitsOfEltype;
 					Number paramValAsNumber = null; //either this or array
 					String inType = ndrangeParamTypes.get(i);
+					Class<? extends Buffer> bufClass;
 					if("float*".equals(inType)){
 						inputEltype = float.class;
 						inputSizeInUnitsOfEltype = (int)(bize/32); //FIXME check for exceeds int range
+						bufClass = FloatBuffer.class;
 					}else if("double*".equals(inType)){
 						inputEltype = double.class;
 						inputSizeInUnitsOfEltype = (int)(bize/64); //FIXME check for exceeds int range
+						bufClass = DoubleBuffer.class;
 					}else if("int*".equals(inType)){
 						inputEltype = int.class;
 						inputSizeInUnitsOfEltype = (int)(bize/32); //FIXME check for exceeds int range
+						bufClass = IntBuffer.class;
 					}else if("int".equals(inType)){
 						inputEltype = int.class;
 						inputSizeInUnitsOfEltype = 32;
 						paramValAsNumber = paramVal.i(0);
+						bufClass = null; //wont be used
 					}else{
 						throw new RuntimeException("TODO type "+inType);
 					}
@@ -529,14 +536,16 @@ public strictfp class LazyclPrototype implements Lazycl{
 					dependParams.add(dp);
 					Mem val = paramValAsNumber!=null
 						? dp //literal Number, small enough to fit in param of opencl ndrange kernel byValue (instead of byReference)
-						: wrapBlobInSyMem(dp, paramVal);
+						: wrapBlobInSyMem(dp, paramVal, bufClass);
+					//	: wrapBlobInSyMem_ofFloatBuffer(dp, paramVal);
 					
+					/*Its not always FloatBuffer anymore as of 2021-2-22
 					if(val instanceof SyMem){ //test. todo remove this
 						FloatBuffer test = ((FloatBuffer)((SyMem)val).mem());
 						for(int j=0; j<test.capacity(); j++){
 							lg("in FloatBuffer["+j+"]="+test.get(j));
 						}
-					}
+					}*/
 					
 					ins.put(dp, val);
 					lockDependParams.add(new LockPar(LockState.readLock, dp));
@@ -595,8 +604,16 @@ public strictfp class LazyclPrototype implements Lazycl{
 		return new ForkSize(globalSize, localSize);
 	}
 	
-	protected Mem wrapBlobInSyMem(DependParam sy, Blob b){
-		return new SyMem<FloatBuffer>(sy, b.arr(FloatBuffer.class));
+	protected Mem wrapBlobInSyMem(DependParam sy, Blob b, Class<? extends Buffer> bufClass){
+		if(bufClass == null) throw new NullPointerException("This might happen if ndrange kernel type is an int or float or long or double etc, instead of a CLMem/Buffer pair, which I'm trying to fix 2021-2-22");
+		//FIXME this shouldnt be just for floats. also double, long, int, etc.
+		return new SyMem(sy, b.arr(bufClass));
+	}
+	
+	protected Mem wrapBlobInSyMem_ofFloatBuffer(DependParam sy, Blob b){
+		//FIXME this shouldnt be just for floats. also double, long, int, etc.
+		//return new SyMem<FloatBuffer>(sy, b.arr(FloatBuffer.class));
+		return wrapBlobInSyMem(sy, b, FloatBuffer.class);
 	}
 	
 	

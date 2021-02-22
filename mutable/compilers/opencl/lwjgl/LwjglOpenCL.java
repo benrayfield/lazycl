@@ -8,6 +8,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.Buffer;
+import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -71,7 +72,7 @@ public class LwjglOpenCL implements OpenCL{
 	//public static synchronized void callOpencl(String kernelCode, int[] ndRange, Object[] paramsRead, Object[] paramsWrite){
 		//lg("java.library.path="+System.getProperty("java.library.path"));
 		try{
-			return Lwjgl.instance().callOpencl(kernelCode, globalSize, params);
+			return Lwjgl.instance().callOpencl(kernelCode, globalSize, localSizeOrNull, params);
 			//Lwjgl.instance().callOpencl(kernelCode, ndRange, paramsRead, paramsWrite);
 		}catch(Throwable t){
 			throw new Error("kernelCode["+kernelCode+"]", t);
@@ -213,7 +214,7 @@ public class LwjglOpenCL implements OpenCL{
 			Map<DependParam,PoolCLMem> dpToPoolclmem = new HashMap();
 			List<DependParam> dependParamsList = new ArrayList(dependParamsSet);
 			lg("dependParamsList "+dependParamsList);
-			List<Integer> dependParamsSizes = new ArrayList();
+			List<Integer> dependParamsSizes = new ArrayList(); //in units of DependParam.elType
 			for(DependParam dp : dependParamsList){
 				if(dp.numOrNull == null){ //if its a Number, it goes in opencl ndrange kernel params as literal not CLMem
 					dependParamsSizes.add(dp.size);
@@ -225,11 +226,13 @@ public class LwjglOpenCL implements OpenCL{
 			for(int i=0; i<dependParamsSizesInBytes.size(); i++){
 				Integer dpSize = dependParamsSizesInBytes.get(i);
 				if(dpSize != null){
-					int primitiveSizeInBytes = 4; //FIXME this is size of float and int. get from DependParam to be more general.
-					dependParamsSizesInBytes.set(i,primitiveSizeInBytes*dpSize);
+					//int primitiveSizeInBytes = 4; //FIXME this is size of float and int. get from DependParam to be more general.
+					DependParam dp = dependParamsList.get(i);
+					dependParamsSizesInBytes.set(i,dp.byteSize());
 				}
 			}
 			lg("dependParamSizes "+dependParamsSizes);
+			lg("dependParamsSizesInBytes "+dependParamsSizesInBytes);
 			//List<PoolCLMem> poolclmemsList = null;
 			List<PoolCLMem> poolclmemsList = pool.alloc(dependParamsSizesInBytes);
 			for(int i=0; i<dependParamsList.size(); i++){
@@ -262,6 +265,8 @@ public class LwjglOpenCL implements OpenCL{
 						//TODO Lwjgl.instance().enqueueCopyBufferToCLMem((Buffer)buf, clmem);
 						if(buf instanceof FloatBuffer){
 							Lwjgl.instance().enqueueCopyFloatbufferToCLMem((FloatBuffer)buf, clmem);
+						}else if(buf instanceof DoubleBuffer){
+							Lwjgl.instance().enqueueCopyDoublebufferToCLMem((DoubleBuffer)buf, clmem);
 						}else{
 							throw new RuntimeException("TODO");
 						}

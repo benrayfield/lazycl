@@ -5,7 +5,13 @@ work if this wraps a FloatBuffer etc (cpu).
 */
 public abstract class Mem{
 	
-	/** type of the primtives (array or buffer elements) in the memory */
+	/** type of the primtives (array or buffer elements) in the memory.
+	<br><br>
+	FIXME??? observed this being java.lang.Integer.class when its a DependParam wrapping an int,
+	but if thats its elType then that implies its an array of integer.
+	Or should it being an autoboxing type (such as Integer, or Double) imply its such a primitive?
+	Or should there be a boolean in Mem to say its an array vs a single primitive?
+	*/
 	public final Class elType;
 	
 	/** number of elType such as float[].length */
@@ -17,16 +23,27 @@ public abstract class Mem{
 	}
 	
 	public int byteSize(){
-		if(elType == float.class || elType == int.class){
-			return size*4;
-		}else if(elType == double.class || elType == long.class){
-			return size*8;
-		}else if(elType == short.class || elType == char.class){
-			return size*2;
-		}else if(elType == byte.class){
-			return size;
+		return bizeof(elType)/8*size; //divide by 8 first to avoid exceeding int range
+	}
+	
+	public long bize(){
+		return (long)bizeof(elType)*size;
+	}
+	
+	/** bitstring size of primitive, such as 64 for double and 32 for int */
+	public static int bizeof(Class c){
+		if(c == double.class || c == long.class || c == Double.class || c == Long.class){
+			return 64;
+		}else if(c == float.class || c == int.class || c == Float.class || c == Integer.class){
+			return 32;
+		}else if(c == short.class || c == char.class || c == Short.class || c == Character.class){
+			return 16;
+		}else if(c == byte.class || c == Byte.class){
+			return 8;
+		}else if(c == boolean.class || c == Boolean.class){
+			return 1;
 		}else{
-			throw new Error("TODO elType "+elType);
+			throw new Error("Unknown supposedly-primitive type: "+c);
 		}
 	}
 	

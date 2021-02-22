@@ -1,9 +1,9 @@
 /** Ben F Rayfield offers this software opensource MIT license */
 package immutable.lazycl.spec;
 import static mutable.util.Lg.*;
-
 import java.util.Arrays;
-
+import immutable.opencl.OpenCL;
+import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
 import mutable.util.Rand;
 import mutable.util.ui.ScreenUtil;
 
@@ -13,6 +13,7 @@ public strictfp class TestLazyCL{
 	public static void runTests(Lazycl lz){
 		//works but dont download too often... testDownload(lz); //FIXME dont do this every time. Dont want to download too many times and get local address blocked. TODO robots.txt
 		//testDownload(lz);
+		testOpencl(lz.opencl(),true);
 		testOpenclMatmul(lz);
 		testDoublesInCode(lz);
 		testDoublesInParams(lz);
@@ -68,11 +69,13 @@ public strictfp class TestLazyCL{
 		lg("Test pass: "+testName);
 	}
 	
+	/** by == */
 	public static void testEqq(String testName, Object x, Object y){
 		if(x != y) throw new RuntimeException("TEST FAIL: "+testName+" cuz "+x+" != "+y);
 		lg("Test pass: "+testName);
 	}
 	
+	/** by .equals or for nulls uses == */
 	public static void testEq(String testName, Object x, Object y){
 		boolean equal = (x==null && y==null) || (x!=null && x.equals(y));
 		if(!equal) throw new RuntimeException("TEST FAIL: "+testName+" cuz "+x+" not .equals "+y);
@@ -316,5 +319,230 @@ public strictfp class TestLazyCL{
 		testEq("testDoublesInCode squares4", squares.f(1), 16f);
 		testEq("testDoublesInCode squares5", squares.f(2), 25f);
 	}
+	
+	public static void testOpencl_matmulFloat(OpenCL cl){
+		lg("Testing with random arrays...");
+		int bSize = 50, cSize = 30, dSize = 70;
+		float[][] bc = new float[bSize][cSize];
+		float[][] cd = new float[cSize][dSize];
+		for(int c=0; c<cSize; c++){
+			for(int b=0; b<bSize; b++){
+				bc[b][c] = (float)Rand.strongRand.nextGaussian();
+			}
+			for(int d=0; d<dSize; d++){
+				cd[c][d] = (float)Rand.strongRand.nextGaussian();
+			}
+		}
+		float[][] bdFromCpu = matmulCpu(bc, cd);
+		float[][] bdFromOpencl = matmul(cl, bc, cd);
+		double sumOfSquares = 0;
+		double sumOfSquaresOfCpu = 0, sumOfSquaresOfOpencl = 0;
+		boolean isExact = true;
+		for(int b=0; b<bSize; b++){
+			for(int d=0; d<dSize; d++){
+				float sub = bdFromCpu[b][d]-bdFromOpencl[b][d];
+				if(sub != 0) isExact = false;
+				sumOfSquares += sub*sub;
+				//Cuz opencl got the right answer but stdDevOfErr=0.0
+				//WARNING: An illegal reflective access operation has occurred
+				//WARNING: Illegal reflective access by org.lwjgl.LWJGLUtil$3 (file:/C:/q29x/eclw/3/HumanAiNet_2019-2+_todoClibin/src/data/lib/lwjgl-debug.jar) to method java.lang.ClassLoader.findLibrary(java.lang.String)
+				//WARNING: Please consider reporting this to the maintainers of org.lwjgl.LWJGLUtil$3
+				//WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+				//WARNING: All illegal access operations will be denied in a future release
+				//testOpencl matmul passed, stdDevOfErr=0.0
+				sumOfSquaresOfCpu += bdFromCpu[b][d]*bdFromCpu[b][d];
+				sumOfSquaresOfOpencl += bdFromOpencl[b][d]*bdFromOpencl[b][d];
+			}
+		}
+		int samples = bSize*dSize;
+		double stdDevOfErr = Math.sqrt(sumOfSquares/samples);
+		String result = "stdDevOfErr="+stdDevOfErr+" sumOfSquaresOfCpu="+sumOfSquaresOfCpu+" sumOfSquaresOfOpencl="+sumOfSquaresOfOpencl;
+		if(stdDevOfErr > .000001) throw new Error("matmul differs too much between cpu and opencl, "+result);
+		lg("testOpencl_matmulFloat matmul passed !strictfp, "+result);
+		if(!isExact) throw new Error("testOpencl_matmulFloat failed strictfp");
+		lg("testOpencl_matmulFloat matmul passed strictfp");
+	}
+	
+	public strictfp static void testOpencl_sum2Floats(OpenCL cl){
+		float inA = (float)Math.PI, inB = (float)Math.E, correctOut = inA+inB;
+		Object[] clOut = cl.callOpencl(
+			"opencl1.2:(global float* out, global const float* in){ out[0] = in[0]+in[1]; }",
+			new int[]{1}, null, new float[1], new float[]{inA, inB});
+		float observedOut = ((float[])(clOut[0]))[0];
+		testEq("testOpencl_sum2Floats", correctOut, observedOut);
+	}
+	
+	public strictfp static void testOpencl_sum2Doubles(OpenCL cl){
+		double inA = Math.PI, inB = Math.E, correctOut = inA+inB;
+		Object[] clOut = cl.callOpencl(
+			"opencl1.2:(global double* out, global const double* in){ out[get_global_id(0)] = in[0]+in[1]; }",
+			new int[]{1}, null, new double[1], new double[]{inA, inB});
+		double observedOut = ((double[])(clOut[0]))[0];
+		testEq("testOpencl_sum2Doubles", correctOut, observedOut);
+	}
+	
+	public static void testOpencl_matmulDouble(OpenCL cl){
+		lg("Testing with random arrays...");
+		int bSize = 50, cSize = 30, dSize = 70;
+		double[][] bc = new double[bSize][cSize];
+		double[][] cd = new double[cSize][dSize];
+		for(int c=0; c<cSize; c++){
+			for(int b=0; b<bSize; b++){
+				bc[b][c] = Rand.strongRand.nextGaussian();
+			}
+			for(int d=0; d<dSize; d++){
+				cd[c][d] = Rand.strongRand.nextGaussian();
+			}
+		}
+		double[][] bdFromCpu = matmulCpu(bc, cd);
+		double[][] bdFromOpencl = matmul(cl, bc, cd);
+		double sumOfSquares = 0;
+		double sumOfSquaresOfCpu = 0, sumOfSquaresOfOpencl = 0;
+		for(int b=0; b<bSize; b++){
+			for(int d=0; d<dSize; d++){
+				double sub = bdFromCpu[b][d]-bdFromOpencl[b][d];
+				sumOfSquares += sub*sub;
+				//Cuz opencl got the right answer but stdDevOfErr=0.0
+				//WARNING: An illegal reflective access operation has occurred
+				//WARNING: Illegal reflective access by org.lwjgl.LWJGLUtil$3 (file:/C:/q29x/eclw/3/HumanAiNet_2019-2+_todoClibin/src/data/lib/lwjgl-debug.jar) to method java.lang.ClassLoader.findLibrary(java.lang.String)
+				//WARNING: Please consider reporting this to the maintainers of org.lwjgl.LWJGLUtil$3
+				//WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+				//WARNING: All illegal access operations will be denied in a future release
+				//testOpencl matmul passed, stdDevOfErr=0.0
+				sumOfSquaresOfCpu += bdFromCpu[b][d]*bdFromCpu[b][d];
+				sumOfSquaresOfOpencl += bdFromOpencl[b][d]*bdFromOpencl[b][d];
+			}
+		}
+		int samples = bSize*dSize;
+		double stdDevOfErr = Math.sqrt(sumOfSquares/samples);
+		String result = "stdDevOfErr="+stdDevOfErr+" sumOfSquaresOfCpu="+sumOfSquaresOfCpu+" sumOfSquaresOfOpencl="+sumOfSquaresOfOpencl;
+		if(stdDevOfErr > .000001) throw new Error("matmul differs too much between cpu and opencl, "+result);
+		lg("testOpencl_matmulDouble matmul passed, "+result);
+	}
+	
+	public static float[][] matmulCpu(float[][] bc, float[][] cd){
+		int B = bc.length;
+		int C = bc[0].length;
+		int D = cd[0].length;
+		//FIXME verify sizes match and are rectangle arrays
+		float[][] bd = new float[B][D];
+		for(int b=0; b<B; b++){
+			for(int d=0; d<D; d++){
+				float sum = 0;
+				for(int c=0; c<C; c++){
+					sum += bc[b][c]*cd[c][d];
+				}
+				bd[b][d] = sum;
+			}
+		}
+		return bd;
+	}
+	
+	public static double[][] matmulCpu(double[][] bc, double[][] cd){
+		int B = bc.length;
+		int C = bc[0].length;
+		int D = cd[0].length;
+		//FIXME verify sizes match and are rectangle arrays
+		double[][] bd = new double[B][D];
+		for(int b=0; b<B; b++){
+			for(int d=0; d<D; d++){
+				double sum = 0;
+				for(int c=0; c<C; c++){
+					sum += bc[b][c]*cd[c][d];
+				}
+				bd[b][d] = sum;
+			}
+		}
+		return bd;
+	}
+	
+	public static void testOpencl(OpenCL cl, boolean allowDoubles){
+		//testInt();
+		testOpencl_sum2Floats(cl);
+		testOpencl_matmulFloat(cl);
+		testOpencl_matmulFloat(cl);
+		if(allowDoubles){
+			testOpencl_sum2Doubles(cl);
+			testOpencl_matmulDouble(cl);
+			testOpencl_matmulDouble(cl);
+		}
+	}
+	
+	/** given float[b][c] and float[c][d] returns float[b][d] */
+	public static synchronized float[][] matmul(OpenCL cl, float[][] bc, float[][] cd){
+		int bSize = bc.length, cSize = bc[0].length, dSize = cd[0].length;
+		if(cd.length != cSize) throw new Error("Sizes dont match");
+		//FIXME verify sizes match and are rectangle arrays
+		float[] bd1d = matmul(cl, bSize, cSize, dSize, LwjglOpenCL.array2dTo1d(bc), LwjglOpenCL.array2dTo1d(cd));
+		return LwjglOpenCL.array1dTo2d(bd1d,bSize);
+	}
+	
+	/** given double[b][c] and double[c][d] returns double[b][d] */
+	public static synchronized double[][] matmul(OpenCL cl, double[][] bc, double[][] cd){
+		int bSize = bc.length, cSize = bc[0].length, dSize = cd[0].length;
+		if(cd.length != cSize) throw new Error("Sizes dont match");
+		//FIXME verify sizes match and are rectangle arrays
+		double[] bd1d = matmul(cl, bSize, cSize, dSize, LwjglOpenCL.array2dTo1d(bc), LwjglOpenCL.array2dTo1d(cd));
+		return LwjglOpenCL.array1dTo2d(bd1d,bSize);
+	}
+	
+	/** bc.length==bSize*cSize && cd.length==cSize*dSize */
+	public static synchronized float[] matmul(OpenCL cl, int bSize, int cSize, int dSize, float[] bc, float[] cd){
+		Object[] out = cl.callOpencl(
+			
+			//FIXME slower, try this until get the right answer then start using matmulCode1dAs2d instead and make that work
+			matmulCode1dAs2d, new int[]{bSize*dSize}, null,
+			
+			//OLD...
+			//FIXME This gets about 3.5 gflops on my 4x1.6GhzLaptop, while the other only about 2. Both give wrong answer,
+			//this one gives 0 and other one gives it appears 1 of the input numbers, so I'm going back to the slower 1d one
+			//while I fix that then come back to this for speed if I can
+			//matmulCode2d, new int[]{bSize, dSize},
+
+			new float[bSize*dSize], bSize, cSize, dSize, bc, cd);
+		return (float[]) out[0];
+	}
+	
+	/** bc.length==bSize*cSize && cd.length==cSize*dSize */
+	public static synchronized double[] matmul(OpenCL cl, int bSize, int cSize, int dSize, double[] bc, double[] cd){
+		Object[] out = cl.callOpencl(
+			openclNdrangeCode_matmulDouble, new int[]{bSize*dSize}, null,
+			new double[bSize*dSize], bSize, cSize, dSize, bc, cd);
+		return (double[]) out[0];
+	}
+	
+	/**
+	https://www.reddit.com/r/gpgpu/comments/bklzru/my_float_code_works_but_double_code_throws_how/
+	TODO
+	https://www.khronos.org/registry/OpenCL/sdk/1.0/docs/man/xhtml/scalarDataTypes.html
+	QUOTE
+		Optional Double Precision and Half Floating Point
+		OpenCL 1.0 adds support for double precision and half floating-point as optional extensions.
+		The double data type must confirm to the IEEE-754 double precision storage format.
+		
+		An application that wants to use double will need to include the
+			#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+			https://www.khronos.org/registry/OpenCL/sdk/1.0/docs/man/xhtml/cl_khr_fp64.html
+		directive before any double precision data type is declared in the kernel code. This will extended the list of built-in vector and scalar data types to include the following:
+		
+		Type in OpenCL Language	Description	API type for application
+		double	A double precision float.	cl_double
+		double2	A 2-component double vector.	cl_double2
+		double4	A 4-component double vector.	cl_double4
+		double8	An 8-component double vector.	cl_double8
+		double16	A 16-component double vector.	cl_double16
+	UNQUOTE.
+	*/
+	public static final String openclNdrangeCode_matmulDouble =
+		"opencl1.2:(global double* bdOut, int const bSize, int const cSize, int const dSize, global const double* bc, global const double* cd){\r\n"+
+		"	int bd = get_global_id(0);\r\n"+
+		"		const int b = bd/dSize;\r\n"+ //TODO optimize allow get_global_id(more dims)?//
+		"		const int d = bd%dSize;\r\n"+ //TODO optimize allow get_global_id(more dims)?
+		"		double sum = 0;\r\n"+
+		"		for(int c=0; c<cSize; c++){\r\n"+
+		"			sum += bc[b*cSize+c]*cd[c*dSize+d];\r\n"+ //TODO optimize allow get_global_id(more dims)?
+		"		}\r\n"+
+		"		bdOut[bd] = sum;\r\n"+
+		"}";
 
 }

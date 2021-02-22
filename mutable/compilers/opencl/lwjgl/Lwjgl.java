@@ -156,9 +156,17 @@ public class Lwjgl{
 	OLD: General enough for all possible single kernel of floats if you wrap multiple dimensions in float[]
 	and use % and / to get the indexs. TODO caches compiled opencl objects for that String by WeakHashMap<String,...>.
 	*/
-	public synchronized Object[] callOpencl(String kernelCode, int[] ndRange, Object... params){
+	public synchronized Object[] callOpencl(String langColonKernelCode, int[] globalSize, int[] localSizeOrNull, Object... params){
+		String expectLang = "opencl1.2";
+		if(!langColonKernelCode.startsWith(expectLang+":")) throw new Error("Not "+expectLang+": "+langColonKernelCode);
+		String kernelCodeStartingAtLparen = langColonKernelCode.substring(expectLang.length()+1); //(global float* bdOut, int const bSize, int const cSize ... }
+		String kernelCode = "kernel void "+LwjglOpenCL.deterministicKernelName(kernelCodeStartingAtLparen)+kernelCodeStartingAtLparen;
+		
+		if(localSizeOrNull != null) throw new RuntimeException("TODO localSizeOrNull not being null: "+localSizeOrNull);
+		
 		boolean logDebug = true;
-		if(ndRange.length > 3) throw new Error("ndRange.length=="+ndRange.length+" > 3");
+		if(globalSize.length > 3) throw new Error("globalSize.length=="+globalSize.length+" > 3");
+		//TODO check localSizeOrNull.length but not if its null
 		CompiledKernel k = compiledOrFromCache(kernelCode);
 		//FIXME only allows each param to be readonly or writeonly but not both,
 		//and while its probably inefficient to do both in the same param, its said to be allowed.
@@ -214,9 +222,10 @@ public class Lwjgl{
 				}else if(p instanceof double[] || p instanceof double[][]){
 					if(logDebug) lg("not logging details of doubles");
 					int size1d = p instanceof double[] ? ((double[])p).length : ((double[][])p).length*((double[][])p)[0].length;
-					buffers[i] = BufferUtils.createFloatBuffer(size1d);
+					//buffers[i] = BufferUtils.createFloatBuffer(size1d);
+					buffers[i] = BufferUtils.createDoubleBuffer(size1d);
 					if(openclWritesParam[i]){
-						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*4, errorBuff);
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*8, errorBuff);
 					}else{
 						double[] fa = p instanceof double[] ? (double[])p : LwjglOpenCL.array2dTo1d((double[][])p);
 						((DoubleBuffer)buffers[i]).put(fa);
@@ -228,16 +237,17 @@ public class Lwjgl{
 				}else{
 					throw new Error("TODO upgrade OpenclUtil for type "+p.getClass().getName());
 				}
+				lg("buffers["+i+"]="+buffers[i]+" isWrite="+openclWritesParam[i]+" p="+p);
 			}
 			if(logDebug) lg("PointerBuffer globalWorkSize");
-			PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(ndRange.length);
+			PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(globalSize.length);
 			//FIXME free globalWorkSize
-			for(int n=0; n<ndRange.length; n++){
-				if(logDebug) lg("globalWorkSize put "+n+" "+ndRange[n]);
-				globalWorkSize.put(n, ndRange[n]);
+			for(int n=0; n<globalSize.length; n++){
+				if(logDebug) lg("globalWorkSize put "+n+" "+globalSize[n]);
+				globalWorkSize.put(n, globalSize[n]);
 			}
-			if(logDebug) lg("clEnqueueNDRangeKernel queue "+k.kernel+" "+ndRange.length+" null "+globalWorkSize+" null null null");
-			CL10.clEnqueueNDRangeKernel(queue, k.kernel, ndRange.length, null, globalWorkSize, null, null, null);
+			if(logDebug) lg("clEnqueueNDRangeKernel queue "+k.kernel+" "+globalSize.length+" null "+globalWorkSize+" null null null");
+			CL10.clEnqueueNDRangeKernel(queue, k.kernel, globalSize.length, null, globalWorkSize, null, null, null);
 			for(int i=0; i<params.length; i++){
 				if(openclWritesParam[i]){
 					if(buffers[i] instanceof FloatBuffer){
@@ -384,6 +394,22 @@ public class Lwjgl{
 		);
 	}
 	
+	public void enqueueCopyDoublebufferToCLMem(DoubleBuffer buf, CLMem mem){
+		lg("clEnqueueWriteBuffer DoubleBuffer="+buf+" CLMem="+mem);
+		CL10.clEnqueueWriteBuffer(
+			queue,
+			mem, 
+			CL10.CL_TRUE, //blocking_write
+			0L, //offset
+			buf, 
+			null, //event_wait_list
+			null //event
+		);
+	}
+	
+	/** As of 2021-2-22 I'm unsure if this works, so I'm creating enqueueCopyDoublebufferToCLMem
+	but TODO get this working before expand to int long byte etc, if it doesnt already work (might have been other bugs).
+	*/
 	public void enqueueCopyBufferToCLMem(Buffer buf, CLMem mem){
 		lg("clEnqueueWriteBuffer Buffer="+buf+" CLMem="+mem+", using JReflect.call...");
 		JReflect.call(
