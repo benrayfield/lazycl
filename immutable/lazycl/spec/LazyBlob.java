@@ -23,8 +23,8 @@ public strictfp interface LazyBlob extends Blob{
 	/** If true, then caller agrees to Throwable when try to read this blob's contents except
 	that other blobs, internal to the lazyclVM, can read it, as an optimization to not have to store it,
 	like if you unroll a loop of 100 cycles to 100*n lazyblob calls and set the first 99 of them to isTemp
-	and only read the last one, the isTemp tells it that it can optimize that in a mutable array
-	to calculate only the last n lazyblobs.
+	and only read the last one, the isTemp tells it that it can optimize that back in forth in 2*n mutable arrays
+	to calculate only the last n lazyblobs, for some constant size n of funcBody.
 	*/
 	public default boolean isTemp(){
 		/*Map<String,LazyBlob> lazyCall = lazyCall();

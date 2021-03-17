@@ -1,6 +1,46 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+UPDATE: Nearly have cpu and gpu computing exact same bits of exponents of e (for sigmoid in neuralnets) aka exp
+It passed 282 exp tests (including infinity, nan, sqrt(2), etc), getting the exact same 64 bits, then differed by the lowest bit.
+I tried setting all the lowest bits to 0, then it passed 5891 exp tests, but got 1000000000 instead of 0111111111
+which is still just plus 1 at the lowest bit. Fdlibm53 (which java StrictMath uses) says
+"according to an error analysis, the error is always less than 1 ulp (unit in the last place)."
+CPU and GPU appear to differ by at most 1 ULP, or may differ by more that I just havent seen yet.
+I need 100% determinism so it works in merkle forest, so I will keep trying.
+```
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.007680884849), and fdlibm53Exp_outs[5876]=2.7392410277263233
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0085932065489995), and fdlibm53Exp_outs[5877]=2.741741237081655
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.009505528249), and fdlibm53Exp_outs[5878]=2.7442437284730556
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0104178499489995), and fdlibm53Exp_outs[5879]=2.7467485039834214
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.011330171649), and fdlibm53Exp_outs[5880]=2.7492555656975597
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0122424933489995), and fdlibm53Exp_outs[5881]=2.7517649157021706
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.013154815049), and fdlibm53Exp_outs[5882]=2.754276556085868
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0140671367489995), and fdlibm53Exp_outs[5883]=2.756790488939164
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.014979458449), and fdlibm53Exp_outs[5884]=2.7593067163544864
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0158917801489995), and fdlibm53Exp_outs[5885]=2.7618252404261656
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.016804101849), and fdlibm53Exp_outs[5886]=2.764346063250451
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0177164235489995), and fdlibm53Exp_outs[5887]=2.7668691869254967
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.018628745249), and fdlibm53Exp_outs[5888]=2.769394613551382
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0195410669489995), and fdlibm53Exp_outs[5889]=2.771922345230092
+> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.020453388649), and fdlibm53Exp_outs[5890]=2.7744523840655413
+> testCpuAndGpuOfExponentsOfEOnDoubles 5891 exp(1.0213657103489995)
+> fdlibm53Exp_outs   0100000000000110001101110100001111000101011100010001000111111111 raw
+> fdlibm53Exp_outs   0100000000000110001101110100001111000101011100010001000111111111 normed
+> javaOuts           0100000000000110001101110100001111000101011100010001000111111111 raw
+> javaOuts           0100000000000110001101110100001111000101011100010001000111111111 normed
+> javaOuts.lowbitas0 0100000000000110001101110100001111000101011100010001000111111110 raw
+> javaOuts.lowbitas0 0100000000000110001101110100001111000101011100010001000111111110 normed
+> openclOuts         0100000000000110001101110100001111000101011100010001001000000000 raw
+> openclOuts         0100000000000110001101110100001111000101011100010001001000000000 normed
+Exception in thread "main" java.lang.RuntimeException: TEST FAIL: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0213657103489995), and fdlibm53Exp_outs[5891]=2.776984732163555 cuz 2.7769847321635543 not .equals 2.7769847321635552
+	at immutable.lazycl.spec.TestLazyCL.testEq(TestLazyCL.java:95)
+	at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:256)
+	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:31)
+	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:17)
+	at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+```
+
 This is how you use Lazycl (notice the "test pass" before the next test fails):
 
 OLD (see floats and doubles passing tests farther below, the few pages of output at the end of readme)...
@@ -35,7 +75,7 @@ https://github.com/benrayfield/lazycl/blob/main/immutable/opencl/OpenCL.java
 
 
 
-The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay around 0.1 second, and the speed you can expect is, for example, to matmul 2 float[1000][1000] together in 1/60 second, and 6 times that much work done per time if its bottlenecked by compute instead of movement of bits between GPU cores and the GPU memory outside them and its a big enough calculation, on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card (UPDATE: I've seen it do 1.1 teraflops) but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
+The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay around 0.1 second, and the speed you can expect is, for example, to matmul 2 float 1000 1000 arrays together in 1/60 second, and 6 times that much work done per time if its bottlenecked by compute instead of movement of bits between GPU cores and the GPU memory outside them and its a big enough calculation, on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card (UPDATE: I've seen it do 1.1 teraflops) but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
 
 It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
 List of opencl compatible devices: https://www.khronos.org/conformance/adopters/conformant-products/opencl

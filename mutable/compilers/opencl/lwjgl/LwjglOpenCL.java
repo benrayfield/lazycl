@@ -891,6 +891,33 @@ public class LwjglOpenCL implements OpenCL{
 		return out;
 	}
 	
+	public static int[] array2dTo1d(int[][] in){
+		int b = in.length, c = in[0].length;
+		int[] out = new int[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+	
+	public static long[] array2dTo1d(long[][] in){
+		int b = in.length, c = in[0].length;
+		long[] out = new long[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+	
+	public static byte[] array2dTo1d(byte[][] in){
+		int b = in.length, c = in[0].length;
+		byte[] out = new byte[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+	
 	/** returns a float[firstDim][in.length/firstDim] where in.length%firstDim==0 */
 	public static float[][] array1dTo2d(float[] in, int firstDim){
 		int secondDim = in.length/firstDim;

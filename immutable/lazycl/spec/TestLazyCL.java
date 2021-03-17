@@ -2,7 +2,10 @@
 package immutable.lazycl.spec;
 import static mutable.util.Lg.*;
 import java.util.Arrays;
+
+import data.lib.Fdlibm53Exp;
 import immutable.opencl.OpenCL;
+import immutable.util.MathUtil;
 import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
 import mutable.util.Rand;
 import mutable.util.ui.ScreenUtil;
@@ -11,12 +14,23 @@ public strictfp class TestLazyCL{
 	
 	/** throws if fail */
 	public static void runTests(Lazycl lz){
+		runTests(lz,true);
+	}
+	
+	/** throws if fail. If !includeDoubles then only float not double, cuz old GPUs dont support double. Also floats are faster. */
+	public static void runTests(Lazycl lz, boolean includeDoubles){
+		
 		//works but dont download too often... testDownload(lz); //FIXME dont do this every time. Dont want to download too many times and get local address blocked. TODO robots.txt
 		//testDownload(lz);
-		testOpencl(lz.opencl(),true);
+		testOpencl(lz.opencl(),includeDoubles);
 		testOpenclMatmul(lz);
-		testDoublesInCode(lz);
-		testDoublesInParams(lz);
+		if(includeDoubles){
+			testDoublesInCode(lz);
+			testDoublesInParams(lz);
+			testDoubleLiterals(lz.opencl());
+			testCpuAndGpuOfExponentsOfEOnDoubles(lz);
+		}
+		
 		/*
 		> Test pass: testDoublesInParams ins.d(1) should be 4.0
 		> Test pass: testDoublesInParams ins.d(2) should be 5.0
@@ -184,12 +198,102 @@ public strictfp class TestLazyCL{
 		testEq("matmul bc cd, testB="+testB+" testD="+testD, correctSum, observedSum);
 	}
 	
-	/*public static final String sigmoidOfFloatArrayOpenclCode = TODO get it working in cpu (float)sigmoid(float) first.
+	/* Use StrictMath.exps(Lazycl,LazyBlob) instead of...
+	public static final String sigmoidOfFloatArrayOpenclCode = TODO get it working in cpu (float)sigmoid(float) first.
 			"opencl1.2:(global float* outs, global const float* ins){\n"+
 					"	int id = get_global_id(0);\n"+
 					"	outs[id] = 1.0f/(1.0f+exp(-ins[id]));\n"+
 					"}";
 	*/
+	
+	public static void testCpuAndGpuOfExponentsOfEOnDoubles(Lazycl lz){
+		lg("Starting testCpuAndGpuOfExponentsOfEOnDoubles");
+		double[] ins = new double[100000];
+		int j = 0;
+		ins[j++] = 0;
+		ins[j++] = Double.POSITIVE_INFINITY;
+		ins[j++] = Double.NEGATIVE_INFINITY;
+		ins[j++] = Double.NaN;
+		ins[j++] = Double.MIN_NORMAL;
+		ins[j++] = -Double.MIN_NORMAL;
+		ins[j++] = Double.MAX_VALUE;
+		ins[j++] = -Double.MAX_VALUE;
+		ins[j++] = Math.PI;
+		ins[j++] = Math.E;
+		ins[j++] = Math.sqrt(2);
+		ins[j++] = -Math.PI;
+		ins[j++] = -Math.E;
+		ins[j++] = -Math.sqrt(2);
+		for(int i=0; i<100; i++){
+			ins[j++] = Math.pow(2,i)-1;
+			ins[j++] = Math.pow(2,i);
+			ins[j++] = Math.pow(2,i)+1;
+			ins[j++] = -Math.pow(2,i)-1;
+			ins[j++] = -Math.pow(2,i);
+			ins[j++] = -Math.pow(2,i)+1;
+			ins[j++] = Math.pow(2,-i)-1;
+			ins[j++] = Math.pow(2,-i);
+			ins[j++] = Math.pow(2,-i)+1;
+			ins[j++] = -Math.pow(2,-i)-1;
+			ins[j++] = -Math.pow(2,-i);
+			ins[j++] = -Math.pow(2,-i)+1;
+		}
+		double[] javaOuts = new double[ins.length];
+		double[] javaOutsLowBitAs0 = new double[ins.length];
+		double[] fdlibm53Exp_outs = new double[ins.length];
+		
+		for(int i=j; i<ins.length; i++){
+			ins[i] = -4.353121424351 + i*.0009123217;
+		}
+		for(int i=0; i<ins.length; i++){
+			javaOuts[i] = StrictMath.exp(ins[i]);
+			javaOutsLowBitAs0[i] = LazyclStrictMath.cpuExp(ins[i]);
+			fdlibm53Exp_outs[i] = Fdlibm53Exp.exp(ins[i]);
+		}
+		double[] openclOuts = LazyclStrictMath.exps(lz, ins);
+		for(int i=0; i<ins.length; i++){
+			try{
+				testEq("testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp("+ins[i]+"), and fdlibm53Exp_outs["+i+"]="
+					+fdlibm53Exp_outs[i], javaOutsLowBitAs0[i], openclOuts[i]);
+			}catch(RuntimeException e){
+				lg("testCpuAndGpuOfExponentsOfEOnDoubles "+i+" exp("+ins[i]+")");
+				lg("fdlibm53Exp_outs   "+MathUtil.bitsToString(Double.doubleToRawLongBits(fdlibm53Exp_outs[i]))+" raw");
+				lg("fdlibm53Exp_outs   "+MathUtil.bitsToString(Double.doubleToLongBits(fdlibm53Exp_outs[i]))+" normed");
+				lg("javaOuts           "+MathUtil.bitsToString(Double.doubleToRawLongBits(javaOuts[i]))+" raw");
+				lg("javaOuts           "+MathUtil.bitsToString(Double.doubleToLongBits(javaOuts[i]))+" normed");
+				lg("javaOuts.lowbitas0 "+MathUtil.bitsToString(Double.doubleToRawLongBits(javaOutsLowBitAs0[i]))+" raw");
+				lg("javaOuts.lowbitas0 "+MathUtil.bitsToString(Double.doubleToLongBits(javaOutsLowBitAs0[i]))+" normed");
+				lg("openclOuts         "+MathUtil.bitsToString(Double.doubleToRawLongBits(openclOuts[i]))+" raw");
+				lg("openclOuts         "+MathUtil.bitsToString(Double.doubleToLongBits(openclOuts[i]))+" normed");
+				throw e;
+			}
+			//testEq("testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits (except lowest bit, by setLowBitTo0) for exp("+ins[i]+"), and fdlibm53Exp_outs["+i+"]="
+			//	+fdlibm53Exp_outs[i], MathUtil.setLowBitTo0(javaOuts[i]), MathUtil.setLowBitTo0(openclOuts[i]));
+		}
+		
+		/* FIXME Fdlibm53.Exp says "according to an error analysis, the error is always less than 1 ulp (unit in the last place).".
+		The difference between cpu and gpu appears to always be within 1 ulp.
+		
+		> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.018628745249), and fdlibm53Exp_outs[5888]=2.769394613551382
+		> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0195410669489995), and fdlibm53Exp_outs[5889]=2.771922345230092
+		> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.020453388649), and fdlibm53Exp_outs[5890]=2.7744523840655413
+		> testCpuAndGpuOfExponentsOfEOnDoubles 5891 exp(1.0213657103489995)
+		> fdlibm53Exp_outs   0100000000000110001101110100001111000101011100010001000111111111 raw
+		> fdlibm53Exp_outs   0100000000000110001101110100001111000101011100010001000111111111 normed
+		> javaOuts           0100000000000110001101110100001111000101011100010001000111111111 raw
+		> javaOuts           0100000000000110001101110100001111000101011100010001000111111111 normed
+		> javaOuts.lowbitas0 0100000000000110001101110100001111000101011100010001000111111110 raw
+		> javaOuts.lowbitas0 0100000000000110001101110100001111000101011100010001000111111110 normed
+		> openclOuts         0100000000000110001101110100001111000101011100010001001000000000 raw
+		> openclOuts         0100000000000110001101110100001111000101011100010001001000000000 normed
+		Exception in thread "main" java.lang.RuntimeException: TEST FAIL: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(1.0213657103489995), and fdlibm53Exp_outs[5891]=2.776984732163555 cuz 2.7769847321635543 not .equals 2.7769847321635552
+			at immutable.lazycl.spec.TestLazyCL.testEq(TestLazyCL.java:95)
+			at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:225)
+			at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:31)
+			at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:17)
+			at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+		 */
+	}
 	
 	/** TODO same bits as sigmoidOfFloatArrayOpenclCode, cuz need determinism for merkle hashing.
 	Theres a calculation of exponent of e in (double)java.lang.FdLibm.Exp.compute(double),
@@ -199,10 +303,10 @@ public strictfp class TestLazyCL{
 	but what about raw vs normed form? I need the normed form.
 	If I'm already using compiler param "-cl-opt-disable" (see that string in Lwjgl.java) will it be the normed form?
 	https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf says opencl1.2 has as_int(float).
-	*/
+	*
 	public static float sigmoid(float x){
 		throw new RuntimeException("TODO");
-	}
+	}*/
 	
 	public static void testOpenclRecurrentNeuralnetNCyclesDeep(Lazycl lz, int nodes, int cyclesDeep){
 		LazyBlob firstNodeStates = lz.wrap(float.class, nodes, (int i)->(((i*i*i)%19f)/19f)); //range 0 to 1
@@ -270,7 +374,96 @@ public strictfp class TestLazyCL{
 		throw new RuntimeException("TODO firstNodeStates.f(20)="+firstNodeStates.f(20)+" nodeStates.f(20)="+nodeStates.f(20));
 	}
 	
+	public static void testOpenclConversionBetweenFloatAndItsRawBitsAndForDoubles(OpenCL cl, boolean includeDoubles){
+		double[] insD = new double[]{Math.PI, Math.E};
+		int siz = insD.length;
+		float[] insF = new float[siz];
+		for(int i=0; i<siz; i++) insF[i] = (float)insD[i];
+		
+		int[] correctOut_floatToIntBits = new int[insF.length];
+		long[] correctOut_doubleToLongBits = new long[insF.length];
+		for(int i=0; i<siz; i++) {
+			correctOut_floatToIntBits[i] = Float.floatToIntBits(insF[i]);
+			correctOut_doubleToLongBits[i] = Double.doubleToLongBits(insD[i]);
+		}
+		
+		Object[] clOut_castFloatToInt = cl.callOpencl(
+			"opencl1.2:(global int* out, global const float* in){\n"
+			+"	int id = get_global_id(0);\n"
+			+"	out[id] = (int)in[id];\n"
+			+"}",
+			new int[]{siz}, null, new int[siz], insF);
+		int[] out_castFloatToInt = (int[])clOut_castFloatToInt[0];
+		for(int i=0; i<siz; i++) {
+			testEq("clOut_castFloatToInt_"+i, out_castFloatToInt[i], (int)insF[i]);
+		}
+		
+		if(includeDoubles){
+			Object[] clOut_castDoubleToLong = cl.callOpencl(
+				"opencl1.2:(global long* out, global const double* in){\n"
+				+"	int id = get_global_id(0);\n"
+				+"	out[id] = (int)in[id];\n"
+				+"}",
+				new int[]{insD.length}, null, new long[insD.length], insD);
+			long[] out_castDoubleToLong = (long[])clOut_castDoubleToLong[0];
+			for(int i=0; i<siz; i++) {
+				testEq("clOut_castDoubleToLong_"+i, out_castDoubleToLong[i], (long)insD[i]);
+			}
+		}
+		
+		Object[] clOut_floatToIntBits = cl.callOpencl(
+			"opencl1.2:(global int* out, global const float* in){\n"
+			+"	int id = get_global_id(0);\n"
+			+"	out[id] = as_int(in[id]);\n"
+			+"}",
+			new int[]{siz}, null, new int[siz], insF);
+		int[] out_floatToIntBits = (int[])clOut_floatToIntBits[0];
+		for(int i=0; i<siz; i++) {
+			testEq("clOut_floatToIntBits_"+i, out_floatToIntBits[i], correctOut_floatToIntBits[i]);
+		}
+		
+		if(includeDoubles){
+			Object[] clOut_doubleToLongBits = cl.callOpencl(
+				"opencl1.2:(global long* out, global const double* in){\n"
+				+"	int id = get_global_id(0);\n"
+				+"	out[id] = as_long(in[id]);\n"
+				+"}",
+				new int[]{siz}, null, new long[siz], insD);
+			long[] out_doubleToLongBits = (long[])clOut_doubleToLongBits[0];
+			for(int i=0; i<siz; i++) {
+				testEq("clOut_doubleToLongBits_"+i, out_doubleToLongBits[i], correctOut_doubleToLongBits[i]);
+			}
+		}
+		
+		Object[] clOut_intBitsToFloat = cl.callOpencl(
+			"opencl1.2:(global float* out, global const int* in){\n"
+			+"	int id = get_global_id(0);\n"
+			+"	out[id] = as_float(in[id]);\n"
+			+"}",
+			new int[]{siz}, null, new float[siz], correctOut_floatToIntBits);
+		float[] out_intBitsToFloat = (float[])clOut_intBitsToFloat[0];
+		for(int i=0; i<siz; i++) {
+			testEq("clOut_intBitsToFloat"+i, out_intBitsToFloat[i], insF[i]);
+		}
+		
+		if(includeDoubles){
+			Object[] clOut_longBitsToDouble = cl.callOpencl(
+				"opencl1.2:(global double* out, global const long* in){\n"
+				+"	int id = get_global_id(0);\n"
+				+"	out[id] = as_double(in[id]);\n"
+				+"}",
+				new int[]{siz}, null, new double[siz], correctOut_doubleToLongBits);
+			double[] out_longBitsToDouble = (double[])clOut_longBitsToDouble[0];
+			for(int i=0; i<siz; i++) {
+				testEq("clOut_longBitsToDouble"+i, out_longBitsToDouble[i], insD[i]);
+			}
+		}
+		
+		lg("testOpenclConversionBetweenFloatAndItsRawBitsAndForDoubles tests pass, includeDoubles="+includeDoubles);
+	}
+	
 	public static void testDoublesInParams(Lazycl lz){
+		lg("Starting testDoublesInParams");
 		double[] insDoubleArray = new double[]{3, 4, 5};
 		int doubles = insDoubleArray.length;
 		LazyBlob ins = lz.wrapc(new double[]{3, 4, 5});
@@ -301,6 +494,7 @@ public strictfp class TestLazyCL{
 	}
 	
 	public static void testDoublesInCode(Lazycl lz){
+		lg("Starting testDoublesInCode");
 		int size = 3;
 		LazyBlob squares = lz.lazycl(
 			"Code",
@@ -320,8 +514,50 @@ public strictfp class TestLazyCL{
 		testEq("testDoublesInCode squares5", squares.f(2), 25f);
 	}
 	
+	public static void testDoubleLiterals(OpenCL cl){
+		lg("Starting testDoubleLiterals");
+		double[] in = new double[]{4.5};
+		//final double huge = 1.0E300;
+		final double twom1000 = 9.332636185032189E-302;
+		final double o_threshold = 709.782712893384;
+		final double u_threshold = -745.1332191019411;
+		final double ln2HI_0 = 0.6931471803691238;
+		final double ln2LO_0 = 1.9082149292705877E-10;
+		final double invln2 = 1.4426950408889634;
+		final double P1 = 0.16666666666666602;
+		final double P2 = -0.0027777777777015593;
+		final double P3 = 6.613756321437934E-5;
+		final double P4 = -1.6533902205465252E-6;
+		final double P5 = 4.1381367970572385E-8;
+		final double ab = 0x1.62e42fefa39efp9;
+		//final double correctOut = in[0]+huge+twom1000+o_threshold+u_threshold+ln2HI_0+ln2LO_0+invln2+P1+P2+P3+P4+P5;
+		final double correctOut = in[0]+twom1000+o_threshold+u_threshold+ln2HI_0+ln2LO_0+invln2+P1+P2+P3+P4+P5+ab;
+		Object[] clOut = cl.callOpencl(
+			"opencl1.2:(global double* out, global const double* in){\n"
+			+"	const int id = get_global_id(0);\n"
+			//+"	const double huge = 1.0E300;\r\n"
+			+"	const double twom1000 = 9.332636185032189E-302;\n"
+			+"	const double o_threshold = 709.782712893384;\n"
+			+"	const double u_threshold = -745.1332191019411;\n"
+			+"	const double ln2HI_0 = 0.6931471803691238;\n"
+			+"	const double ln2LO_0 = 1.9082149292705877E-10;\n"
+			+"	const double invln2 = 1.4426950408889634;\n"
+			+"	const double P1 = 0.16666666666666602;\n"
+			+"	const double P2 = -0.0027777777777015593;\n"
+			+"	const double P3 = 6.613756321437934E-5;\n"
+			+"	const double P4 = -1.6533902205465252E-6;\n"
+			+"	const double P5 = 4.1381367970572385E-8;\n"
+			+"	const double ab = 0x1.62e42fefa39efp9;\n"
+			//+"	out[id] = in[id]+huge+twom1000+o_threshold+u_threshold+ln2HI_0+ln2LO_0+invln2+P1+P2+P3+P4+P5;\n"
+			+"	out[id] = in[id]+twom1000+o_threshold+u_threshold+ln2HI_0+ln2LO_0+invln2+P1+P2+P3+P4+P5+ab;\n"
+			+"}",
+			new int[]{1}, null, new double[1], in);
+		double observedOut = ((double[])(clOut[0]))[0];
+		testEq("testDoubleLiterals001", correctOut, observedOut);
+	}
+	
 	public static void testOpencl_matmulFloat(OpenCL cl){
-		lg("Testing with random arrays...");
+		lg("Starting testOpencl_matmulFloat. Testing with random arrays...");
 		int bSize = 50, cSize = 30, dSize = 70;
 		float[][] bc = new float[bSize][cSize];
 		float[][] cd = new float[cSize][dSize];
@@ -363,7 +599,7 @@ public strictfp class TestLazyCL{
 		lg("testOpencl_matmulFloat matmul passed strictfp");
 	}
 	
-	public strictfp static void testOpencl_sum2Floats(OpenCL cl){
+	public static void testOpencl_sum2Floats(OpenCL cl){
 		float inA = (float)Math.PI, inB = (float)Math.E, correctOut = inA+inB;
 		Object[] clOut = cl.callOpencl(
 			"opencl1.2:(global float* out, global const float* in){ out[0] = in[0]+in[1]; }",
@@ -372,13 +608,36 @@ public strictfp class TestLazyCL{
 		testEq("testOpencl_sum2Floats", correctOut, observedOut);
 	}
 	
-	public strictfp static void testOpencl_sum2Doubles(OpenCL cl){
+	public static void testOpencl_sum2Doubles(OpenCL cl){
 		double inA = Math.PI, inB = Math.E, correctOut = inA+inB;
 		Object[] clOut = cl.callOpencl(
 			"opencl1.2:(global double* out, global const double* in){ out[get_global_id(0)] = in[0]+in[1]; }",
 			new int[]{1}, null, new double[1], new double[]{inA, inB});
 		double observedOut = ((double[])(clOut[0]))[0];
 		testEq("testOpencl_sum2Doubles", correctOut, observedOut);
+	}
+	
+	public static void testOpenclBoolInCode(OpenCL cl){
+		float inA = (float)Math.PI, inB = (float)Math.E, correctOut = 22;
+		Object[] clOut = cl.callOpencl(
+			"opencl1.2:(global float* out, global const float* in){\n"
+			+"	int id = get_global_id(0);\n"
+			+"	const bool gt = in[0]>in[1];\n"
+			+"	bool lt = in[0]<in[1];\n"
+			+"	float ret = 10.0f;\n"
+			+"	if(gt){\n"
+			+"		ret += 5;\n"
+			+"	}else if(lt){\n"
+			+"		ret += 6;\n"
+			+"	}"
+			+"	if(gt|lt){\n"
+			+"		ret += 7;\n"
+			+"	}\n"
+			+"	out[id] = ret;\n"
+			+"}",
+			new int[]{1}, null, new float[1], new float[]{inA, inB});
+		float observedOut = ((float[])(clOut[0]))[0];
+		testEq("testOpenclBoolInCode", correctOut, observedOut);
 	}
 	
 	public static void testOpencl_matmulDouble(OpenCL cl){
@@ -456,16 +715,18 @@ public strictfp class TestLazyCL{
 		return bd;
 	}
 	
-	public static void testOpencl(OpenCL cl, boolean allowDoubles){
+	public static void testOpencl(OpenCL cl, boolean includeDoubles){
 		//testInt();
 		testOpencl_sum2Floats(cl);
+		testOpenclBoolInCode(cl);
 		testOpencl_matmulFloat(cl);
 		testOpencl_matmulFloat(cl);
-		if(allowDoubles){
+		if(includeDoubles){
 			testOpencl_sum2Doubles(cl);
 			testOpencl_matmulDouble(cl);
 			testOpencl_matmulDouble(cl);
 		}
+		testOpenclConversionBetweenFloatAndItsRawBitsAndForDoubles(cl,includeDoubles);
 	}
 	
 	/** given float[b][c] and float[c][d] returns float[b][d] */
@@ -534,15 +795,15 @@ public strictfp class TestLazyCL{
 	UNQUOTE.
 	*/
 	public static final String openclNdrangeCode_matmulDouble =
-		"opencl1.2:(global double* bdOut, int const bSize, int const cSize, int const dSize, global const double* bc, global const double* cd){\r\n"+
-		"	int bd = get_global_id(0);\r\n"+
-		"		const int b = bd/dSize;\r\n"+ //TODO optimize allow get_global_id(more dims)?//
-		"		const int d = bd%dSize;\r\n"+ //TODO optimize allow get_global_id(more dims)?
-		"		double sum = 0;\r\n"+
-		"		for(int c=0; c<cSize; c++){\r\n"+
-		"			sum += bc[b*cSize+c]*cd[c*dSize+d];\r\n"+ //TODO optimize allow get_global_id(more dims)?
-		"		}\r\n"+
-		"		bdOut[bd] = sum;\r\n"+
+		"opencl1.2:(global double* bdOut, int const bSize, int const cSize, int const dSize, global const double* bc, global const double* cd){\n"+
+		"	int bd = get_global_id(0);\n"+
+		"		const int b = bd/dSize;\n"+ //TODO optimize allow get_global_id(more dims)?//
+		"		const int d = bd%dSize;\n"+ //TODO optimize allow get_global_id(more dims)?
+		"		double sum = 0;\n"+
+		"		for(int c=0; c<cSize; c++){\n"+
+		"			sum += bc[b*cSize+c]*cd[c*dSize+d];\n"+ //TODO optimize allow get_global_id(more dims)?
+		"		}\n"+
+		"		bdOut[bd] = sum;\n"+
 		"}";
 
 }

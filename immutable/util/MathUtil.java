@@ -14,6 +14,11 @@ import java.util.function.DoubleUnaryOperator;
 
 public class MathUtil{
 	
+	public static String bitsToString(long g){
+		String s = "000000000000000000000000000000000000000000000000000000000000000"+Long.toUnsignedString(g,2);
+		return s.substring(s.length()-64);
+	}
+	
 	public static double sigmoid(double x){
 		return 1/(1+Math.exp(-x));
 	}
@@ -866,6 +871,11 @@ public class MathUtil{
 			(byte)(j>>>8),
 			(byte)j
 		};
+	}
+	
+	/** This is an experiment to get cpu and gpu to compute exp the exact same way, sacrificing a bit of precision */
+	public static double setLowBitTo0(double d){
+		return Double.longBitsToDouble(Double.doubleToLongBits(d)&(-2L));
 	}
 	
 	public static int ceilOfDivide(int x, int y){

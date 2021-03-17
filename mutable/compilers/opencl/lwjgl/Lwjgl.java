@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.nio.LongBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.lwjgl.opencl.CLKernel;
 import org.lwjgl.opencl.CLMem;
 import org.lwjgl.opencl.CLPlatform;
 import org.lwjgl.opencl.CLProgram;
+import org.lwjgl.opencl.OpenCLException;
 import org.lwjgl.opencl.Util;
 
 import mutable.util.JReflect;
@@ -64,23 +66,27 @@ public class Lwjgl{
 	private static final Map<String,CompiledKernel> codeToCompiled = new WeakHashMap();
 	
 	public synchronized final CompiledKernel compiledOrFromCache(String kernelCode){
-		//System.out.println("kernelCode="+kernelCode);
-		CompiledKernel k = codeToCompiled.get(kernelCode);
-		if(k == null){
-			CLProgram prog = CL10.clCreateProgramWithSource(context, kernelCode, null);
-			String compilerParams = "-cl-opt-disable"; //FIXME remove this?
-			//String compilerParams = ""; //FIXME
-			int error = CL10.clBuildProgram(prog, devices.get(0), compilerParams, null);
-			//FIXME choose which of https://www.khronos.org/registry/OpenCL/sdk/1.0/docs/man/xhtml/clBuildProgram.html to use
-			//	for determinism but without telling it to be slower than it has to
-			//	for that determinism.
-			Util.checkCLError(error);
-			String kernName = LwjglOpenCL.findKernelName(kernelCode);
-			CLKernel kern = CL10.clCreateKernel(prog, kernName, null);
-			k = new CompiledKernel(kernelCode, prog, kern, kernName, error);
-			codeToCompiled.put(kernelCode, k);
+		try{
+			//System.out.println("kernelCode="+kernelCode);
+			CompiledKernel k = codeToCompiled.get(kernelCode);
+			if(k == null){
+				CLProgram prog = CL10.clCreateProgramWithSource(context, kernelCode, null);
+				String compilerParams = "-cl-opt-disable"; //FIXME remove this?
+				//String compilerParams = ""; //FIXME
+				int error = CL10.clBuildProgram(prog, devices.get(0), compilerParams, null);
+				//FIXME choose which of https://www.khronos.org/registry/OpenCL/sdk/1.0/docs/man/xhtml/clBuildProgram.html to use
+				//	for determinism but without telling it to be slower than it has to
+				//	for that determinism.
+				Util.checkCLError(error);
+				String kernName = LwjglOpenCL.findKernelName(kernelCode);
+				CLKernel kern = CL10.clCreateKernel(prog, kernName, null);
+				k = new CompiledKernel(kernelCode, prog, kern, kernName, error);
+				codeToCompiled.put(kernelCode, k);
+			}
+			return k;
+		}catch(OpenCLException e){
+			throw new OpenCLException("kernelCode["+kernelCode+"]", e);
 		}
-		return k;
 	}
 	
 	
@@ -220,7 +226,7 @@ public class Lwjgl{
 					Util.checkCLError(errorBuff.get(0)); //FIXME If theres an error erase it at end of call so can reuse errorBuff
 					k.kernel.setArg(i, clmems[i]);
 				}else if(p instanceof double[] || p instanceof double[][]){
-					if(logDebug) lg("not logging details of doubles");
+					if(logDebug) lg("TODO... log details of doubles");
 					int size1d = p instanceof double[] ? ((double[])p).length : ((double[][])p).length*((double[][])p)[0].length;
 					//buffers[i] = BufferUtils.createFloatBuffer(size1d);
 					buffers[i] = BufferUtils.createDoubleBuffer(size1d);
@@ -231,6 +237,48 @@ public class Lwjgl{
 						((DoubleBuffer)buffers[i]).put(fa);
 						((DoubleBuffer)buffers[i]).rewind();
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (DoubleBuffer)buffers[i], errorBuff);
+					}
+					Util.checkCLError(errorBuff.get(0)); //FIXME If theres an error erase it at end of call so can reuse errorBuff
+					k.kernel.setArg(i, clmems[i]);
+				}else if(p instanceof int[] || p instanceof int[][]){
+					if(logDebug) lg("TODO... log details of ints");
+					int size1d = p instanceof int[] ? ((int[])p).length : ((int[][])p).length*((int[][])p)[0].length;
+					buffers[i] = BufferUtils.createIntBuffer(size1d);
+					if(openclWritesParam[i]){
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*4, errorBuff);
+					}else{
+						int[] fa = p instanceof int[] ? (int[])p : LwjglOpenCL.array2dTo1d((int[][])p);
+						((IntBuffer)buffers[i]).put(fa);
+						((IntBuffer)buffers[i]).rewind();
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (IntBuffer)buffers[i], errorBuff);
+					}
+					Util.checkCLError(errorBuff.get(0)); //FIXME If theres an error erase it at end of call so can reuse errorBuff
+					k.kernel.setArg(i, clmems[i]);
+				}else if(p instanceof long[] || p instanceof long[][]){
+					if(logDebug) lg("TODO... log details of longs");
+					int size1d = p instanceof long[] ? ((long[])p).length : ((long[][])p).length*((long[][])p)[0].length;
+					buffers[i] = BufferUtils.createLongBuffer(size1d);
+					if(openclWritesParam[i]){
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*8, errorBuff);
+					}else{
+						long[] fa = p instanceof long[] ? (long[])p : LwjglOpenCL.array2dTo1d((long[][])p);
+						((LongBuffer)buffers[i]).put(fa);
+						((LongBuffer)buffers[i]).rewind();
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (LongBuffer)buffers[i], errorBuff);
+					}
+					Util.checkCLError(errorBuff.get(0)); //FIXME If theres an error erase it at end of call so can reuse errorBuff
+					k.kernel.setArg(i, clmems[i]);
+				}else if(p instanceof byte[] || p instanceof byte[][]){
+					if(logDebug) lg("TODO... log details of bytes");
+					int size1d = p instanceof byte[] ? ((byte[])p).length : ((byte[][])p).length*((byte[][])p)[0].length;
+					buffers[i] = BufferUtils.createLongBuffer(size1d);
+					if(openclWritesParam[i]){
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*8, errorBuff);
+					}else{
+						byte[] fa = p instanceof byte[] ? (byte[])p : LwjglOpenCL.array2dTo1d((byte[][])p);
+						((ByteBuffer)buffers[i]).put(fa);
+						((ByteBuffer)buffers[i]).rewind();
+						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (ByteBuffer)buffers[i], errorBuff);
 					}
 					Util.checkCLError(errorBuff.get(0)); //FIXME If theres an error erase it at end of call so can reuse errorBuff
 					k.kernel.setArg(i, clmems[i]);
@@ -256,6 +304,15 @@ public class Lwjgl{
 					}else if(buffers[i] instanceof DoubleBuffer){
 						if(logDebug) lg("clEnqueueReadBuffer doubles");
 						CL10.clEnqueueReadBuffer(queue, clmems[i], CL10.CL_TRUE, 0, (DoubleBuffer)buffers[i], null, null);
+					}else if(buffers[i] instanceof IntBuffer){
+						if(logDebug) lg("clEnqueueReadBuffer ints");
+						CL10.clEnqueueReadBuffer(queue, clmems[i], CL10.CL_TRUE, 0, (IntBuffer)buffers[i], null, null);
+					}else if(buffers[i] instanceof LongBuffer){
+						if(logDebug) lg("clEnqueueReadBuffer longs");
+						CL10.clEnqueueReadBuffer(queue, clmems[i], CL10.CL_TRUE, 0, (LongBuffer)buffers[i], null, null);
+					}else if(buffers[i] instanceof ByteBuffer){
+						if(logDebug) lg("clEnqueueReadBuffer bytes");
+						CL10.clEnqueueReadBuffer(queue, clmems[i], CL10.CL_TRUE, 0, (ByteBuffer)buffers[i], null, null);
 					}else{
 						throw new Error("TODO upgrade OpenclUtil for type: "+buffers[i]);
 					}
@@ -287,6 +344,22 @@ public class Lwjgl{
 						da[j] = b.get(j);
 					}
 					ret[i] = da;
+				}else if(p instanceof int[]){
+					int[] da = new int[((int[])params[i]).length];
+					IntBuffer b = (IntBuffer)buffers[i];
+					b.rewind();
+					for(int j=0; j<da.length; j++){
+						da[j] = b.get(j);
+					}
+					ret[i] = da;
+				}else if(p instanceof long[]){
+					long[] da = new long[((long[])params[i]).length];
+					LongBuffer b = (LongBuffer)buffers[i];
+					b.rewind();
+					for(int j=0; j<da.length; j++){
+						da[j] = b.get(j);
+					}
+					ret[i] = da;
 				}else if(p instanceof float[][]){
 					int outerDim = ((float[][])p).length;
 					int innerDim = ((float[][])p)[0].length;
@@ -305,6 +378,45 @@ public class Lwjgl{
 					int innerDim = ((double[][])p)[0].length;
 					double[][] daa = new double[outerDim][innerDim];
 					DoubleBuffer b = (DoubleBuffer)buffers[i];
+					b.rewind();
+					int g = 0;
+					for(int o=0; o<outerDim; o++){
+						for(int j=0; j<innerDim; j++){
+							daa[o][j] = b.get(g++);
+						}
+					}
+					ret[i] = daa;
+				}else if(p instanceof int[][]){
+					int outerDim = ((int[][])p).length;
+					int innerDim = ((int[][])p)[0].length;
+					int[][] daa = new int[outerDim][innerDim];
+					IntBuffer b = (IntBuffer)buffers[i];
+					b.rewind();
+					int g = 0;
+					for(int o=0; o<outerDim; o++){
+						for(int j=0; j<innerDim; j++){
+							daa[o][j] = b.get(g++);
+						}
+					}
+					ret[i] = daa;
+				}else if(p instanceof long[][]){
+					int outerDim = ((long[][])p).length;
+					int innerDim = ((long[][])p)[0].length;
+					long[][] daa = new long[outerDim][innerDim];
+					LongBuffer b = (LongBuffer)buffers[i];
+					b.rewind();
+					int g = 0;
+					for(int o=0; o<outerDim; o++){
+						for(int j=0; j<innerDim; j++){
+							daa[o][j] = b.get(g++);
+						}
+					}
+					ret[i] = daa;
+				}else if(p instanceof byte[][]){
+					int outerDim = ((byte[][])p).length;
+					int innerDim = ((byte[][])p)[0].length;
+					byte[][] daa = new byte[outerDim][innerDim];
+					ByteBuffer b = (ByteBuffer)buffers[i];
 					b.rewind();
 					int g = 0;
 					for(int o=0; o<outerDim; o++){
