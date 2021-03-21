@@ -16,6 +16,9 @@ This is an important interface for its internal workings, if you want to port La
 https://github.com/benrayfield/lazycl/blob/main/immutable/opencl/OpenCL.java
 
 
+Here's a port of Fdlibm53's exp function (which I need for sigmoid in neuralnets) to opencl, which matches https://docs.oracle.com/javase/8/docs/api/java/lang/StrictMath.html#exp-double- on nearly all testcases so far (will make it 100% match soon):
+https://github.com/benrayfield/lazycl/blob/main/data/lib/fdlibm53/Fdlibm53Exp.langColonCode
+
 
 The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay around 0.1 second, and the speed you can expect is, for example, to matmul 2 float 1000 1000 arrays together in 1/60 second, and 6 times that much work done per time if its bottlenecked by compute instead of movement of bits between GPU cores and the GPU memory outside them and its a big enough calculation, on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card (UPDATE: I've seen it do 1.1 teraflops) but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
 
