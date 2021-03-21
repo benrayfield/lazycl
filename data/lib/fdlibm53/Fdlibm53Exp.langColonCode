@@ -1,0 +1,177 @@
+opencl1.2:(global double* out, global const double* in){
+
+	/* return setLowBitTo0(exp(x)) the same as java setLowBitTo0(StrictMath.exp(double))
+	such as setLowBitTo0(openjdk11 java.lang.FdLibm.exp(double) which this code is ported from).
+	setLowBitTo0 is cuz of, for example:
+	> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(21.191886175649003), and fdlibm53Exp_outs[280]=1.5977882652195513E9
+	> testCpuAndGpuOfExponentsOfEOnDoubles 281
+	> fdlibm53Exp_outs 0100000111011010000101010100110011111001100110000011101000001101 raw
+	> fdlibm53Exp_outs 0100000111011010000101010100110011111001100110000011101000001101 normed
+	> javaOuts         0100000111011010000101010100110011111001100110000011101000001101 raw
+	> javaOuts         0100000111011010000101010100110011111001100110000011101000001101 normed
+	> openclOuts       0100000111011010000101010100110011111001100110000011101000001101 raw
+	> openclOuts       0100000111011010000101010100110011111001100110000011101000001101 normed
+	> Test pass: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(21.283118345649), and fdlibm53Exp_outs[281]=1.7504143103785431E9
+	> testCpuAndGpuOfExponentsOfEOnDoubles 282
+	> fdlibm53Exp_outs 0100000111011100100100110010001101111101101001101100101111110111 raw
+	> fdlibm53Exp_outs 0100000111011100100100110010001101111101101001101100101111110111 normed
+	> javaOuts         0100000111011100100100110010001101111101101001101100101111110111 raw
+	> javaOuts         0100000111011100100100110010001101111101101001101100101111110111 normed
+	> openclOuts       0100000111011100100100110010001101111101101001101100101111110110 raw
+	> openclOuts       0100000111011100100100110010001101111101101001101100101111110110 normed
+	Exception in thread "main" java.lang.RuntimeException: TEST FAIL: testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp(21.374350515649), and fdlibm53Exp_outs[282]=1.917619702606199E9 cuz 1.917619702606199E9 not .equals 1.9176197026061988E9
+		at immutable.lazycl.spec.TestLazyCL.testEq(TestLazyCL.java:95)
+		at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:229)
+		at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:31)
+		at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:17)
+		at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+	*/
+
+	const int id = get_global_id(0);
+	double x = in[id];
+
+	const double one	 = 1.0;
+	//const double[] half = {0.5, -0.5,};
+	const double half_0 = 0.5;
+	//const double half_1 = -0.5;
+	
+	/*const double huge = 1.0E300;
+	const double twom1000 = 9.332636185032189E-302;
+	const double o_threshold = 709.782712893384;
+	const double u_threshold = -745.1332191019411;
+	const double ln2HI_0 = 0.6931471803691238;
+	const double ln2LO_0 = 1.9082149292705877E-10;
+	const double invln2 = 1.4426950408889634;
+	const double P1 = 0.16666666666666602;
+	const double P2 = -0.0027777777777015593;
+	const double P3 = 6.613756321437934E-5;
+	const double P4 = -1.6533902205465252E-6;
+	const double P5 = 4.1381367970572385E-8;
+	*/
+	const double huge	= 1.0e+300;
+	const double twom1000=	 0x1.0p-1000;			 //  9.33263618503218878990e-302 = 2^-1000
+	const double o_threshold=  0x1.62e42fefa39efp9;	 //  7.09782712893383973096e+02
+	const double u_threshold= -0x1.74910d52d3051p9;	 // -7.45133219101941108420e+02;
+	//const double[] ln2HI   ={  0x1.62e42feep-1,		 //  6.93147180369123816490e-01
+	//										 -0x1.62e42feep-1};		// -6.93147180369123816490e-01
+	const double ln2HI_0 = 0x1.62e42feep-1;		 //  6.93147180369123816490e-01
+	//const double ln2HI_1 = -0x1.62e42feep-1;
+	//const double[] ln2LO   ={  0x1.a39ef35793c76p-33,   //  1.90821492927058770002e-10
+	//										 -0x1.a39ef35793c76p-33};  // -1.90821492927058770002e-10
+	const double ln2LO_0 = 0x1.a39ef35793c76p-33;   //  1.90821492927058770002e-10
+	//const double ln2LO_1 = -0x1.a39ef35793c76p-33;
+	
+	const double invln2 =	  0x1.71547652b82fep0;	 //  1.44269504088896338700e+00
+
+	const double P1   =  0x1.555555555553ep-3;  //  1.66666666666666019037e-01
+	const double P2   = -0x1.6c16c16bebd93p-9;  // -2.77777777770155933842e-03
+	const double P3   =  0x1.1566aaf25de2cp-14; //  6.61375632143793436117e-05
+	const double P4   = -0x1.bbd41c5d26bf1p-20; // -1.65339022054652515390e-06
+	const double P5   =  0x1.6376972bea4d0p-25; //  4.13813679705723846039e-08
+	
+	//double y;
+	double y = 0;
+	double hi = 0.0;
+	double lo = 0.0;
+	double c = 0.0;
+	double t = 0.0;
+	int k = 0;
+	int xsb = 0;
+	int hx = 0; //unsigned
+
+	//hx  = __HI(x);  //high word of x
+	hx = (int)(as_long(x)>>32);
+	xsb = (hx >> 31) & 1;			   //sign bit of x
+	hx &= 0x7fffffff;			   //high word of |x|
+	
+	double ret = 0;
+	bool returned = false;
+
+	//filter out non-finite argument
+	if (hx >= 0x40862E42) {				  // if |x| >= 709.78... 
+		if (hx >= 0x7ff00000) {
+			int loX = (int)as_long(x);
+			if (((hx & 0xfffff) | loX) != 0)
+				ret = x + x;				// NaN
+			else
+				ret = (xsb == 0) ? x : 0.0;	 //exp(+-inf) = {inf, 0}
+		}else if (x > o_threshold){
+			ret = huge * huge; //overflow
+		}else if (x < u_threshold){ // unsigned compare needed here?
+			ret = twom1000 * twom1000; //underflow
+		}
+		returned = true;
+	}
+
+	if(!returned){
+		//argument reduction
+		if (hx > 0x3fd62e42) {		   //if  |x| > 0.5 ln2
+			if(hx < 0x3FF0A2B2) {	   //and |x| < 1.5 ln2
+				//hi = x - ln2HI[xsb];
+				hi = x - (xsb==0 ? ln2HI_0 : -ln2HI_0);
+				lo=(xsb==0 ? ln2LO_0 : -ln2LO_0);
+				k = (1 - xsb) - xsb;
+			} else {
+				//k  = (int)(invln2 * x + half[xsb]);
+				k  = (int)((invln2 * x) + (xsb==0 ? half_0 : -half_0));
+				t  = k;
+				//hi = x - (t*ln2HI[0]);	//t*ln2HI is exact here
+				hi = x - (t*ln2HI_0);	  //t*ln2HI is exact here
+				lo = t*ln2LO_0;
+			}
+			x  = hi - lo;
+		} else if (hx < 0x3e300000)  {	 //when |x|<2**-28
+			if (huge + x > one){
+				ret = one + x;  //trigger inexact
+				returned = true;
+			}
+		} else {
+			k = 0;
+		}
+
+		//x is now in primary range
+		t  = x * x;
+		
+		//deterministic roundoff, same in cpu and gpu,
+		//instead of "c  = x - t*(P1 + t*(P2 + t*(P3 + t*(P4 + t*P5))))" differing between cpu and gpu.
+		c = t*P5;
+		c = P4+c;
+		c = t*c;
+		c = P3+c;
+		c = t*c;
+		c = P2+c;
+		c = t*c;
+		c = P1+c;
+		c = t*c;
+		c = x-c;
+		
+		if (k == 0){
+			ret = one - ((x*c)/(c - 2.0) - x);
+			returned = true;
+		}else{
+			y = one - ((lo - ((x*c)/(2.0 - c))) - hi);
+		}
+
+		if(!returned){
+			int hiY = (int)(as_long(y)>>32);
+			if(k >= -1021) {
+				//y = __HI(y, __HI(y) + (k << 20)); //add k to y's exponent
+				//y = __HI(y, hiY + (k << 20)); //add k to y's exponent
+				//
+				//__HI(double y, int high) == as_double((as_raw_long(y)&0xffffffffL)|(((long)high))<<32)
+				y = as_double((as_long(y)&0xffffffffL)|(((long)(hiY + (k << 20))))<<32); //add k to y's exponent
+				ret = y;
+			} else {
+				//y = __HI(y, hiY + ((k + 1000) << 20)); //add k to y's exponent
+				//
+				//__HI(double y, int high) == as_double((as_raw_long(y)&0xffffffffL)|(((long)high))<<32)
+				y = as_double((as_long(y)&0xffffffffL)|(((long)((k + 1000) << 20)))<<32); //add k to y's exponent
+				ret = y * twom1000;
+			}
+		}
+	}
+	
+	//ret = as_double(as_long(ret)&0xfffffffffffffffeL); //setLowBitTo0
+
+	out[id] = ret;	
+}

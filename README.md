@@ -1,6 +1,42 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
+
+UPDATE: Nearly have cpu and gpu computing exact same bits, other than denormal zeros it appears. First 62736 of 500000 testCpuAndGpuOfExponentsOfEOnDoubles tests passed:
+```
+> return [[D@60f82f98, [D@35f983a6]
+> inBits                        1100000010000111000100111101111001001101101001010100011101011001 -738.483546534767 get exp of this
+>  . . 
+> cpuOutBits                    0000000000000000000000000000000000000000000000000000000110000010 1.907E-321 an exp output
+> cpu2OutBits                   0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+> gpuOutBits                    0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+>  . . 
+> diffFirst2                    0000000000000000000000000000000000000000000000000000000110000010
+> diffSecond2                   0000000000000000000000000000000000000000000000000000000000000000
+> as doubles do first 2 ==:     false
+> as doubles do secopnd 2 ==:   true
+> as doubles do 1st and 3rd ==: false
+>  . . NORMS...
+> cpuOutBits                    0000000000000000000000000000000000000000000000000000000110000010 1.907E-321 an exp output
+> cpu2OutBits                   0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+> gpuOutBits                    0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+>  . . 
+> diffFirst2                    0000000000000000000000000000000000000000000000000000000110000010
+> diffSecond2                   0000000000000000000000000000000000000000000000000000000000000000
+> as doubles do first 2 ==:     false
+> as doubles do secopnd 2 ==:   true
+> as doubles do 1st and 3rd ==: false
+> 
+> FIXME: 2021-3-21 since changing the c= line changed the output of Fdlibm53, todo compute it using BigDecimal (or compute it using boolean[] which I can do very slowly) etc and find which is more precise in math, which is probably StrictMath, but verify that and figure out what order of ops its using and write them in that order. Make all 3 match.
+> First 62736 of 500000 testCpuAndGpuOfExponentsOfEOnDoubles tests passed.
+Exception in thread "main" java.lang.RuntimeException: Test fail at i=62736
+	at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:410)
+	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:42)
+	at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:18)
+	at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+```
+
 UPDATE: Nearly have cpu and gpu computing exact same bits of exponents of e (for sigmoid in neuralnets) aka exp
 It passed 282 exp tests (including infinity, nan, sqrt(2), etc), getting the exact same 64 bits, then differed by the lowest bit.
 I tried setting all the lowest bits to 0, then it passed 5891 exp tests, but got 1000000000 instead of 0111111111

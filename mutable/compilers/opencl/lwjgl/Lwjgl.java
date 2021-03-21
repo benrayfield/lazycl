@@ -71,7 +71,8 @@ public class Lwjgl{
 			CompiledKernel k = codeToCompiled.get(kernelCode);
 			if(k == null){
 				CLProgram prog = CL10.clCreateProgramWithSource(context, kernelCode, null);
-				String compilerParams = "-cl-opt-disable"; //FIXME remove this?
+				//String compilerParams = "-cl-opt-disable"; //FIXME remove this?
+				String compilerParams = "-cl-opt-disable -cl-std=CL1.2";
 				//String compilerParams = ""; //FIXME
 				int error = CL10.clBuildProgram(prog, devices.get(0), compilerParams, null);
 				//FIXME choose which of https://www.khronos.org/registry/OpenCL/sdk/1.0/docs/man/xhtml/clBuildProgram.html to use

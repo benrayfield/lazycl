@@ -14,6 +14,16 @@ import java.util.function.DoubleUnaryOperator;
 
 public class MathUtil{
 	
+	public static String bitsToHex(int i){
+		String s = "0000000"+Integer.toUnsignedString(i,16);
+		return s.substring(s.length()-8);
+	}
+	
+	public static String bitsToString(int i){
+		String s = "0000000000000000000000000000000"+Integer.toUnsignedString(i,2);
+		return s.substring(s.length()-32);
+	}
+	
 	public static String bitsToString(long g){
 		String s = "000000000000000000000000000000000000000000000000000000000000000"+Long.toUnsignedString(g,2);
 		return s.substring(s.length()-64);

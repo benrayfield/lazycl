@@ -3,9 +3,10 @@ package immutable.lazycl.spec;
 import static mutable.util.Lg.*;
 import java.util.Arrays;
 
-import data.lib.Fdlibm53Exp;
+import data.lib.fdlibm53.Fdlibm53Exp;
 import immutable.opencl.OpenCL;
 import immutable.util.MathUtil;
+import immutable.util.Pair;
 import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
 import mutable.util.Rand;
 import mutable.util.ui.ScreenUtil;
@@ -20,6 +21,15 @@ public strictfp class TestLazyCL{
 	/** throws if fail. If !includeDoubles then only float not double, cuz old GPUs dont support double. Also floats are faster. */
 	public static void runTests(Lazycl lz, boolean includeDoubles){
 		
+		for(int i=0; i<10; i++){
+			lg("randomNormedDouble: "+randomNormedDouble());
+		}
+		
+		for(int i=0; i<10; i++){
+			long g = Rand.strongRand.nextLong();
+			lg("randLong: "+MathUtil.bitsToString(g)+" "+Double.longBitsToDouble(g));
+		}
+		
 		//works but dont download too often... testDownload(lz); //FIXME dont do this every time. Dont want to download too many times and get local address blocked. TODO robots.txt
 		//testDownload(lz);
 		testOpencl(lz.opencl(),includeDoubles);
@@ -28,6 +38,7 @@ public strictfp class TestLazyCL{
 			testDoublesInCode(lz);
 			testDoublesInParams(lz);
 			testDoubleLiterals(lz.opencl());
+			testOpencl_matmulDouble(lz.opencl());
 			testCpuAndGpuOfExponentsOfEOnDoubles(lz);
 		}
 		
@@ -206,9 +217,61 @@ public strictfp class TestLazyCL{
 					"}";
 	*/
 	
-	public static void testCpuAndGpuOfExponentsOfEOnDoubles(Lazycl lz){
+	public static double norm(double d){
+		return Double.longBitsToDouble(Double.doubleToLongBits(d));
+	}
+	
+	/** randomly sampled from all nonnormed doubles the normed, so each exponent occurs near equally often,
+	and based on the below 2 quotes, I'm unsure if +Infinity -Infinity and NaN all occur often vs are only a few out of 2^64 possible values.
+	<br><br>
+	https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+	0 00000000000 0000000000000000000000000000000000000000000000000000 ≙ 0000 0000 0000 000016 ≙ +0
+	1 00000000000 0000000000000000000000000000000000000000000000000000 ≙ 8000 0000 0000 000016 ≙ −0
+	0 11111111111 0000000000000000000000000000000000000000000000000000 ≙ 7FF0 0000 0000 000016 ≙ +∞ (positive infinity)
+	1 11111111111 0000000000000000000000000000000000000000000000000000 ≙ FFF0 0000 0000 000016 ≙ −∞ (negative infinity)
+	0 11111111111 0000000000000000000000000000000000000000000000000001 ≙ 7FF0 0000 0000 000116 ≙ NaN (sNaN on most processors, such as x86 and ARM)
+	0 11111111111 1000000000000000000000000000000000000000000000000001 ≙ 7FF8 0000 0000 000116 ≙ NaN (qNaN on most processors, such as x86 and ARM)
+	0 11111111111 1111111111111111111111111111111111111111111111111111 ≙ 7FFF FFFF FFFF FFFF16 ≙ NaN (an alternative encoding of NaN)
+	<br><br>
+	From java.lang.Double sourcecode:
+	**
+     * A constant holding the positive infinity of type
+     * {@code double}. It is equal to the value returned by
+     * {@code Double.longBitsToDouble(0x7ff0000000000000L)}.
+     *
+    public static final double POSITIVE_INFINITY = 1.0 / 0.0;
+    **
+     * A constant holding the negative infinity of type
+     * {@code double}. It is equal to the value returned by
+     * {@code Double.longBitsToDouble(0xfff0000000000000L)}.
+     *
+    public static final double NEGATIVE_INFINITY = -1.0 / 0.0;
+    **
+     * A constant holding a Not-a-Number (NaN) value of type
+     * {@code double}. It is equivalent to the value returned by
+     * {@code Double.longBitsToDouble(0x7ff8000000000000L)}.
+     *
+    public static final double NaN = 0.0d / 0.0;
+	*/
+	public static double randomNormedDouble() {
+		return norm(Double.longBitsToDouble(Rand.strongRand.nextLong())); 
+	}
+	
+	public static strictfp void testCpuAndGpuOfExponentsOfEOnDoubles(Lazycl lz){
 		lg("Starting testCpuAndGpuOfExponentsOfEOnDoubles");
-		double[] ins = new double[100000];
+		/*
+		These test are slightly nondeterministic probably cuz using Math.pow func,
+		but they can still generate random tests of the determinism of 2 implementations of exp getting the same answer every time.
+		
+		> i=65450 exp(4.0001065305886537E307)
+		> i=65460 exp(5.198471405664417E307)
+		> i=65470 exp(6.755846312806505E307)
+		> i=65480 exp(8.779784640640494E307)
+		> i=65490 exp(Infinity)
+		> i=65500 exp(Infinity)
+		> i=65510 exp(Infinity)
+		*/
+		double[] ins = new double[500000]; 
 		int j = 0;
 		ins[j++] = 0;
 		ins[j++] = Double.POSITIVE_INFINITY;
@@ -238,38 +301,204 @@ public strictfp class TestLazyCL{
 			ins[j++] = -Math.pow(2,-i);
 			ins[j++] = -Math.pow(2,-i)+1;
 		}
-		double[] javaOuts = new double[ins.length];
-		double[] javaOutsLowBitAs0 = new double[ins.length];
-		double[] fdlibm53Exp_outs = new double[ins.length];
+		double[] cpuJavaStrictmathOuts = new double[ins.length];
+		double[] cpuFdlibm53ExpOuts = new double[ins.length];
+		double[] openclOuts;
 		
-		for(int i=j; i<ins.length; i++){
-			ins[i] = -4.353121424351 + i*.0009123217;
+		//double[] javaOutsLowBitAs0 = new double[ins.length];
+		//double[] fdlibm53Exp_raw_outs = new double[ins.length];
+		//double[] fdlibm53Exp_normed_outs = new double[ins.length];
+		//Pair<Double,Long>[] fdlibm53Exp_normed_outs_pairs = new Pair[ins.length];
+		
+		for(int i=j; i<ins.length/2; i++){
+			ins[i] = -4.353121424351 + i*.0003123217;
 		}
-		for(int i=0; i<ins.length; i++){
-			javaOuts[i] = StrictMath.exp(ins[i]);
-			javaOutsLowBitAs0[i] = LazyclStrictMath.cpuExp(ins[i]);
-			fdlibm53Exp_outs[i] = Fdlibm53Exp.exp(ins[i]);
+		for(int i=Math.max(j,ins.length/2); i<ins.length; i+=4){
+			ins[i] = (ins[i-4]+ins[i-8])*.51;
+			ins[i+1] = -ins[i];
+			ins[i+2] = 1./ins[i];
+			ins[i+3] = -1./ins[i];
 		}
-		double[] openclOuts = LazyclStrictMath.exps(lz, ins);
+		for(int i=0; i<ins.length/5; i++){
+			ins[ins.length/2+Rand.strongRand.nextInt(ins.length/2)] = randomNormedDouble();
+		}
+		
+		/*
+		> inBits                        1100000010000111000100101010011110110100010011010111010000110000 -738.3318868685801 get exp of this
+		>  . . 
+		> cpuOutBits                    0000000000000000000000000000000000000000000000000000000111000010 2.223E-321 an exp output
+		> cpu2OutBits                   0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+		> gpuOutBits                    0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+		>  . . 
+		> diffFirst2                    0000000000000000000000000000000000000000000000000000000111000010
+		> diffSecond2                   0000000000000000000000000000000000000000000000000000000000000000
+		> as doubles do first 2 ==:     false
+		> as doubles do secopnd 2 ==:   true
+		> as doubles do 1st and 3rd ==: false
+		> 
+		> FIXME: 2021-3-21 since changing the c= line changed the output of Fdlibm53, todo compute it using BigDecimal (or compute it using boolean[] which I can do very slowly) etc and find which is more precise in math, which is probably StrictMath, but verify that and figure out what order of ops its using and write them in that order. Make all 3 match.
+		Exception in thread "main" java.lang.RuntimeException: Test fail at i=62631
+			at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:368)
+		
+		"2.223E-321" an exp output. Very near "4.9406564584124654 × 10−324".
+		https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+		0 00000000000 00000000000000000000000000000000000000000000000000012
+		≙ 0000 0000 0000 000116 ≙ +2−1022 × 2−52 = 2−1074
+		≈ 4.9406564584124654 × 10−324 (Min. subnormal positive double) 
+		*/
+		ins[ins.length-1] = -738.3318868685801;
+		
+		
+		Arrays.sort(ins);
+		
+		//boolean convertDoublesToFloatsBeforeInput = true; //cuz doubles are slightly nondeterministic in opencl code as of 2021-3-17. may find a way to fix it.
+		//if(convertDoublesToFloatsBeforeInput) for(int i=0; i<ins.length; i++){
+		//	ins[i] = (float)ins[i];
+		//}
+		
 		for(int i=0; i<ins.length; i++){
-			try{
-				testEq("testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp("+ins[i]+"), and fdlibm53Exp_outs["+i+"]="
-					+fdlibm53Exp_outs[i], javaOutsLowBitAs0[i], openclOuts[i]);
-			}catch(RuntimeException e){
-				lg("testCpuAndGpuOfExponentsOfEOnDoubles "+i+" exp("+ins[i]+")");
-				lg("fdlibm53Exp_outs   "+MathUtil.bitsToString(Double.doubleToRawLongBits(fdlibm53Exp_outs[i]))+" raw");
-				lg("fdlibm53Exp_outs   "+MathUtil.bitsToString(Double.doubleToLongBits(fdlibm53Exp_outs[i]))+" normed");
-				lg("javaOuts           "+MathUtil.bitsToString(Double.doubleToRawLongBits(javaOuts[i]))+" raw");
-				lg("javaOuts           "+MathUtil.bitsToString(Double.doubleToLongBits(javaOuts[i]))+" normed");
-				lg("javaOuts.lowbitas0 "+MathUtil.bitsToString(Double.doubleToRawLongBits(javaOutsLowBitAs0[i]))+" raw");
-				lg("javaOuts.lowbitas0 "+MathUtil.bitsToString(Double.doubleToLongBits(javaOutsLowBitAs0[i]))+" normed");
-				lg("openclOuts         "+MathUtil.bitsToString(Double.doubleToRawLongBits(openclOuts[i]))+" raw");
-				lg("openclOuts         "+MathUtil.bitsToString(Double.doubleToLongBits(openclOuts[i]))+" normed");
-				throw e;
+			cpuJavaStrictmathOuts[i] = StrictMath.exp(ins[i]);
+			
+			cpuFdlibm53ExpOuts[i] = Fdlibm53Exp.exp(ins[i]);
+			//javaOutsLowBitAs0[i] = LazyclStrictMath.cpuExp(ins[i]);
+			//fdlibm53Exp_normed_outs[i] = Fdlibm53Exp.expUsingNormedDoubleLongTransform(ins[i]);
+			
+			//fdlibm53Exp_normed_outs_pairs[i] = Fdlibm53Exp.expUsingNormedDoubleLongTransform_withExtraOutputForDebug(ins[i]);
+			
+		}
+		openclOuts = LazyclStrictMath.exps(lz, ins);
+		//Pair<double[],long[]> openclOutsWithDebug = LazyclStrictMath.exp_withExtraOutputForDebug(lz, ins);
+		//double[] openclOuts = openclOutsWithDebug.l;
+		//long[] openclDebug = openclOutsWithDebug.r;
+		long countErrors = 0;
+		long maxDiff = 0;
+		for(int i=0; i<ins.length; i++){
+			
+			long cpuBits = Double.doubleToRawLongBits(cpuJavaStrictmathOuts[i]);
+			long cpu2Bits = Double.doubleToRawLongBits(cpuFdlibm53ExpOuts[i]);
+			long gpuBits = Double.doubleToRawLongBits(openclOuts[i]);
+			long cpuBitsNorm = Double.doubleToLongBits(cpuJavaStrictmathOuts[i]);
+			long cpu2BitsNorm = Double.doubleToLongBits(cpuFdlibm53ExpOuts[i]);
+			long gpuBitsNorm = Double.doubleToLongBits(openclOuts[i]);
+			//if(cpuBitsNorm != gpuBits || gpuBitsNorm != cpu2BitsNorm){ //if all 3 exp functions dont give exactly the same 64 bits of output
+			if(cpuBits != gpuBits || cpuBits != cpu2Bits){ //if all 3 exp functions dont give exactly the same 64 bits of output
+			//if(cpu2Bits != gpuBits){
+				lg("inBits                        "+MathUtil.bitsToString(Double.doubleToRawLongBits(ins[i]))+" "+ins[i]+" get exp of this");
+				lg(" . . ");
+				lg("cpuOutBits                    "+MathUtil.bitsToString(cpuBits)+" "+cpuJavaStrictmathOuts[i]+" an exp output");
+				lg("cpu2OutBits                   "+MathUtil.bitsToString(cpu2Bits)+" "+cpuFdlibm53ExpOuts[i]+" an exp output");
+				lg("gpuOutBits                    "+MathUtil.bitsToString(gpuBits)+" "+openclOuts[i]+" an exp output");
+				lg(" . . ");
+				lg("diffFirst2                    "+MathUtil.bitsToString(cpuBits^cpu2Bits));
+				lg("diffSecond2                   "+MathUtil.bitsToString(cpu2Bits^gpuBits));
+				lg("as doubles do first 2 ==:     "+(cpuJavaStrictmathOuts[i]==cpuFdlibm53ExpOuts[i]));
+				lg("as doubles do secopnd 2 ==:   "+(cpuFdlibm53ExpOuts[i]==openclOuts[i]));
+				lg("as doubles do 1st and 3rd ==: "+(cpuJavaStrictmathOuts[i]==openclOuts[i]));
+				lg(" . . NORMS...");
+				lg("cpuOutBits                    "+MathUtil.bitsToString(cpuBitsNorm)+" "+cpuJavaStrictmathOuts[i]+" an exp output");
+				lg("cpu2OutBits                   "+MathUtil.bitsToString(cpu2BitsNorm)+" "+cpuFdlibm53ExpOuts[i]+" an exp output");
+				lg("gpuOutBits                    "+MathUtil.bitsToString(gpuBitsNorm)+" "+openclOuts[i]+" an exp output");
+				lg(" . . ");
+				lg("diffFirst2                    "+MathUtil.bitsToString(cpuBitsNorm^cpu2BitsNorm));
+				lg("diffSecond2                   "+MathUtil.bitsToString(cpu2BitsNorm^gpuBitsNorm));
+				lg("as doubles do first 2 ==:     "+(cpuJavaStrictmathOuts[i]==cpuFdlibm53ExpOuts[i]));
+				lg("as doubles do secopnd 2 ==:   "+(cpuFdlibm53ExpOuts[i]==openclOuts[i]));
+				lg("as doubles do 1st and 3rd ==: "+(cpuJavaStrictmathOuts[i]==openclOuts[i]));
+				lg("");
+				lg("FIXME: 2021-3-21 since changing the c= line changed the output of Fdlibm53, todo compute it using BigDecimal (or compute it using boolean[] which I can do very slowly) etc and find which is more precise in math, which is probably StrictMath, but verify that and figure out what order of ops its using and write them in that order. Make all 3 match.");
+				lg("First "+i+" of "+ins.length+" testCpuAndGpuOfExponentsOfEOnDoubles tests passed.");
+				throw new RuntimeException("Test fail at i="+i);
+				
+				/** Is this a nonnormed zero?
+				> inBits                  1100000010000111000100101010011110110100010011010111010000110000 -738.3318868685801 get exp of this
+				> cpuOutBits              0000000000000000000000000000000000000000000000000000000111000010 2.223E-321 an exp output
+				> gpuOutBits              0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+				> diff                    0000000000000000000000000000000000000000000000000000000111000010
+				> 
+				Exception in thread "main" java.lang.RuntimeException: Test fail at i=62456
+					at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:358)
+					at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:42)
+					at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:18)
+					at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+					
+				https://www.tutorialspoint.com/compile_java_online.php confirms StrictMath.exp(-738.331886868580) -> 2.223E-321
+				Firefox 86.0.1 (64-bit) in win10 says Math.exp(-738.3318868685801) -> 2.223e-321,
+					but I'm unsure if Firefox uses the same Fdlibm53 and strictfp etc.
+				*/
+				
+				/*
+				> inBits                        1100000010000110011110001001001001110111011111110010100000000100 -719.0715169843756 get exp of this
+				>  . . 
+				> cpuOutBits                    0000000000000000000000000001100000111100011101000001001000001100 5.14290000033E-313 an exp output
+				> cpu2OutBits                   0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+				> gpuOutBits                    0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+				>  . . 
+				> diffFirst2                    0000000000000000000000000001100000111100011101000001001000001100
+				> diffSecond2                   0000000000000000000000000000000000000000000000000000000000000000
+				> as doubles do first 2 ==:     false
+				> as doubles do secopnd 2 ==:   true
+				> as doubles do 1st and 3rd ==: false
+				
+				https://www.tutorialspoint.com/compile_java_online.php confirms StrictMath.exp(-719.0715169843756) -> 5.14290000033E-313
+				Firefox 86.0.1 (64-bit) in win10 says Math.exp(-719.0715169843756) -> 5.14290000033e-313
+				*/
 			}
+			
+			/*try{
+				/*long diff = Math.abs(Double.doubleToLongBits(fdlibm53Exp_normed_outs[i])-Double.doubleToLongBits(openclOuts[i]));
+				maxDiff = Math.max(maxDiff, diff);
+				//testEq("testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits for exp("+ins[i]+"), and fdlibm53Exp_raw_outs["+i+"]="
+				//	+fdlibm53Exp_raw_outs[i]+" normed="+fdlibm53Exp_normed_outs[i], fdlibm53Exp_normed_outs[i], openclOuts[i]);
+				long inBits = Double.doubleToRawLongBits(ins[i]);
+				long a = Double.doubleToRawLongBits(fdlibm53Exp_normed_outs[i]);
+				long b = Double.doubleToRawLongBits(openclOuts[i]);
+				//boolean err = a!=b;
+				boolean err = openclDebug[i]!=fdlibm53Exp_normed_outs_pairs[i].r; //ignore output of exp and compare debug output
+				if(err){
+					lg("inBits                  "+MathUtil.bitsToString(inBits));
+					lg("fdlibm53Exp_normed_outs "+MathUtil.bitsToString(a)+" "+(err?"X "+(a-b)+" "+fdlibm53Exp_normed_outs[i]+" exp("+ins[i]+") i="+i+" ihex="+MathUtil.bitsToHex(i):""));
+					lg("openclOuts              "+MathUtil.bitsToString(b)+" "+(err?"X "+(b-a)+" "+openclOuts[i]+" exp("+ins[i]+") i="+i:""));
+					lg("diff                    "+MathUtil.bitsToString(a^b));
+					lg(".");
+					lg("cpuDebug                "+MathUtil.bitsToString(fdlibm53Exp_normed_outs_pairs[i].r));
+					lg("gpuDebug                "+MathUtil.bitsToString(openclDebug[i]));
+					lg("diffDebug               "+MathUtil.bitsToString(openclDebug[i]^fdlibm53Exp_normed_outs_pairs[i].r));
+					lg("");
+					countErrors++;
+					break;
+				}
+				*
+				if(i%1000<4) lg("i="+i+" exp("+ins[i]+")");
+			}catch(RuntimeException e){
+				/*lg("");
+				lg("");
+				lg("testCpuAndGpuOfExponentsOfEOnDoubles "+i+" exp("+ins[i]+")");
+				lg("fdlibm53Exp_normed_outs "+MathUtil.bitsToString(Double.doubleToRawLongBits(fdlibm53Exp_normed_outs[i]))+" raw");
+				lg("fdlibm53Exp_normed_outs "+MathUtil.bitsToString(Double.doubleToLongBits(fdlibm53Exp_normed_outs[i]))+" normed");
+				lg("fdlibm53Exp_raw_outs    "+MathUtil.bitsToString(Double.doubleToRawLongBits(fdlibm53Exp_raw_outs[i]))+" raw");
+				lg("fdlibm53Exp_raw_outs    "+MathUtil.bitsToString(Double.doubleToLongBits(fdlibm53Exp_raw_outs[i]))+" normed");
+				lg("javaOuts                "+MathUtil.bitsToString(Double.doubleToRawLongBits(javaOuts[i]))+" raw");
+				lg("javaOuts                "+MathUtil.bitsToString(Double.doubleToLongBits(javaOuts[i]))+" normed");
+				lg("javaOuts.lowbitas0      "+MathUtil.bitsToString(Double.doubleToRawLongBits(javaOutsLowBitAs0[i]))+" raw");
+				lg("javaOuts.lowbitas0      "+MathUtil.bitsToString(Double.doubleToLongBits(javaOutsLowBitAs0[i]))+" normed");
+				lg("openclOuts              "+MathUtil.bitsToString(Double.doubleToRawLongBits(openclOuts[i]))+" raw");
+				lg("openclOuts              "+MathUtil.bitsToString(Double.doubleToLongBits(openclOuts[i]))+" normed");
+				lg("");
+				*
+				lg("fdlibm53Exp_normed_outs "+MathUtil.bitsToString(Double.doubleToLongBits(fdlibm53Exp_normed_outs[i]))+" normed");
+				lg("openclOuts              "+MathUtil.bitsToString(Double.doubleToLongBits(openclOuts[i]))+" normed");
+				lg("");
+				/*lg("maxDiff="+maxDiff+" countErrors="+countErrors+" fractionErr="+((double)countErrors/(i+1)));
+				//throw e;
+				e.printStackTrace(System.err);
+				*
+				countErrors++;
+				*
+			}*/
 			//testEq("testCpuAndGpuOfExponentsOfEOnDoubles CPU and GPU get exact same bits (except lowest bit, by setLowBitTo0) for exp("+ins[i]+"), and fdlibm53Exp_outs["+i+"]="
 			//	+fdlibm53Exp_outs[i], MathUtil.setLowBitTo0(javaOuts[i]), MathUtil.setLowBitTo0(openclOuts[i]));
 		}
+		//if(countErrors > 0) throw new RuntimeException("countErrors="+countErrors+" Dont just printStackTrace, do the throw");
 		
 		/* FIXME Fdlibm53.Exp says "according to an error analysis, the error is always less than 1 ulp (unit in the last place).".
 		The difference between cpu and gpu appears to always be within 1 ulp.
@@ -293,6 +522,7 @@ public strictfp class TestLazyCL{
 			at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:17)
 			at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
 		 */
+		lg("testCpuAndGpuOfExponentsOfEOnDoubles tests pass, of "+ins.length+" calls of exp(double)->double that match exactly between cpu and gpu, in both cases using Fdlibm53.");
 	}
 	
 	/** TODO same bits as sigmoidOfFloatArrayOpenclCode, cuz need determinism for merkle hashing.
@@ -657,8 +887,13 @@ public strictfp class TestLazyCL{
 		double[][] bdFromOpencl = matmul(cl, bc, cd);
 		double sumOfSquares = 0;
 		double sumOfSquaresOfCpu = 0, sumOfSquaresOfOpencl = 0;
+		long countErrors = 0;
 		for(int b=0; b<bSize; b++){
 			for(int d=0; d<dSize; d++){
+				if(bdFromCpu[b][d] != bdFromOpencl[b][d]) {
+					//in case theres roundoff in sumOfSquares or -. I've been finding 1 ulp size errors (plus/minus a lowest bit of double) 2021-3.
+					countErrors++;
+				}
 				double sub = bdFromCpu[b][d]-bdFromOpencl[b][d];
 				sumOfSquares += sub*sub;
 				//Cuz opencl got the right answer but stdDevOfErr=0.0
@@ -675,7 +910,8 @@ public strictfp class TestLazyCL{
 		int samples = bSize*dSize;
 		double stdDevOfErr = Math.sqrt(sumOfSquares/samples);
 		String result = "stdDevOfErr="+stdDevOfErr+" sumOfSquaresOfCpu="+sumOfSquaresOfCpu+" sumOfSquaresOfOpencl="+sumOfSquaresOfOpencl;
-		if(stdDevOfErr > .000001) throw new Error("matmul differs too much between cpu and opencl, "+result);
+		//if(stdDevOfErr > .000001) throw new Error("matmul differs too much between cpu and opencl, "+result);
+		testEq("testOpencl_matmulDouble must get same result for cpu and gpu", countErrors, 0L);
 		lg("testOpencl_matmulDouble matmul passed, "+result);
 	}
 	
