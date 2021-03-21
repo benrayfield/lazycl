@@ -1,6 +1,43 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+You only need these 3 interfaces to use LazyCL:
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java (make forest of opencl ndrange kernel calls from here, statelessly and without dealing with buffers, pooling, compiling, caching, etc)
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java (immutable lazy-evaled bitstring, is a Blob)
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/util/Blob.java (immutable bitstring)
+
+
+This is an important interface for its internal workings, if you want to port Lazycl to some other implementation of opencl such as AMD's C++ opencl code or to call opencl in a GPU cloud, for example:
+
+https://github.com/benrayfield/lazycl/blob/main/immutable/opencl/OpenCL.java
+
+
+
+The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay around 0.1 second, and the speed you can expect is, for example, to matmul 2 float 1000 1000 arrays together in 1/60 second, and 6 times that much work done per time if its bottlenecked by compute instead of movement of bits between GPU cores and the GPU memory outside them and its a big enough calculation, on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card (UPDATE: I've seen it do 1.1 teraflops) but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
+
+It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
+List of opencl compatible devices: https://www.khronos.org/conformance/adopters/conformant-products/opencl
+
+(UPDATE: lazyEvaling the code string is interfering with knowing which multiple nodes to eval together in GPU before returning to CPU)((( You may also lazyEval the code string if you're willing to pay compiling delay, or if its not the first call of whatever code string it evals to then you dont pay compiling delay but you do pay the delay between cpu and gpu which otherwise would have done multiple opencl ndrange kernel calls in gpu before returning multiple blobs to cpu (excluding blobs marked as temp which are not copied). This means you may also lazy eval which language its using. For example, to be in "superposition" of using java or opencl for a certain node in the forest of lazy calls until its evaled to "java8:..." or "opencl1.2:..." or "javascript:..." or maybe even "cuda:..." someday. )))
+
+The main classes are immutable.lazycl.spec.LazyBlob and immutable.lazycl.impl.LazyclPrototype (was Util)
+
+Caches compiler output so you can use the code string of the function as the function itself. Pools CLMem objects to avoid lag of reallocating them.
+
+Currently comes with the lwjgl dll for 64 bit windows but todo will also be supported on linux. lwjgl works on linux windows and mac, it says,
+and on other OS (if someone writes the code) could use other opencl implementations. Opencl works on a variety of OS.
+
+Will also support lazyeval of java lambdas that return blobs (such as FloatBuffer or long[]), and the syntax is expandable to any number of languages prefixed by "languageName:".
+
+
+
+
+Doubles are not working in callOpenclDependnet (for lower lag, the new code that uses LazyBlob) yet, only in callOpencl (which does 1 ndrange kernel at a time).
+
+
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
 
 UPDATE: Nearly have cpu and gpu computing exact same bits, other than denormal zeros it appears. First 62736 of 500000 testCpuAndGpuOfExponentsOfEOnDoubles tests passed:
@@ -96,36 +133,6 @@ java.lang.RuntimeException: TODO
 
 
 
-You only need these 3 interfaces to use LazyCL:
-
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java (make forest of opencl ndrange kernel calls from here, statelessly and without dealing with buffers, pooling, compiling, caching, etc)
-
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java (immutable lazy-evaled bitstring, is a Blob)
-
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Blob.java (immutable bitstring)
-
-
-This is an important interface for its internal workings, if you want to port Lazycl to some other implementation of opencl such as AMD's C++ opencl code or to call opencl in a GPU cloud, for example:
-
-https://github.com/benrayfield/lazycl/blob/main/immutable/opencl/OpenCL.java
-
-
-
-The lag you can expect from this system is to do multiple opencl calls within a single video frame of a game except the first time each is called has a compiling delay around 0.1 second, and the speed you can expect is, for example, to matmul 2 float 1000 1000 arrays together in 1/60 second, and 6 times that much work done per time if its bottlenecked by compute instead of movement of bits between GPU cores and the GPU memory outside them and its a big enough calculation, on a Nvidia Geforce RTX 2080 SUPER GPU which is supposedly a 9 teraflop card (UPDATE: I've seen it do 1.1 teraflops) but it appears to be IO bottlenecked and (I havent done much testing on this part yet) go faster for things that dont read as much from global memory as matmul must do (or maybe its one of the memory levels between and I should be using per GPU instead of global memory?), or maybe dividing it into more of smaller calls to do in parallel might speed it up. Opencl optimizations can be explored within the first param of call func which is a code string, and the global and local number of threads.
-
-It uses opencl version 1.2 cuz thats whats most standardized. For example, it works on both AMD and Nvidia cards.
-List of opencl compatible devices: https://www.khronos.org/conformance/adopters/conformant-products/opencl
-
-(UPDATE: lazyEvaling the code string is interfering with knowing which multiple nodes to eval together in GPU before returning to CPU)((( You may also lazyEval the code string if you're willing to pay compiling delay, or if its not the first call of whatever code string it evals to then you dont pay compiling delay but you do pay the delay between cpu and gpu which otherwise would have done multiple opencl ndrange kernel calls in gpu before returning multiple blobs to cpu (excluding blobs marked as temp which are not copied). This means you may also lazy eval which language its using. For example, to be in "superposition" of using java or opencl for a certain node in the forest of lazy calls until its evaled to "java8:..." or "opencl1.2:..." or "javascript:..." or maybe even "cuda:..." someday. )))
-
-The main classes are immutable.lazycl.spec.LazyBlob and immutable.lazycl.impl.LazyclPrototype (was Util)
-
-Caches compiler output so you can use the code string of the function as the function itself. Pools CLMem objects to avoid lag of reallocating them.
-
-Currently comes with the lwjgl dll for 64 bit windows but todo will also be supported on linux. lwjgl works on linux windows and mac, it says,
-and on other OS (if someone writes the code) could use other opencl implementations. Opencl works on a variety of OS.
-
-Will also support lazyeval of java lambdas that return blobs (such as FloatBuffer or long[]), and the syntax is expandable to any number of languages prefixed by "languageName:".
 
 TODO...
 String matmulCode1dAs2d = //todo generate kernel void hashNameBasedOnKernelCodeString
