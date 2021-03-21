@@ -5,7 +5,8 @@ You only need these 3 interfaces to use LazyCL:
 
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java (make forest of opencl ndrange kernel calls from here, statelessly and without dealing with buffers, pooling, compiling, caching, etc)
 
-https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java (immutable lazy-evaled bitstring, is a Blob)
+https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/LazyBlob.java (immutable lazy-evaled bitstring, is a Blob).
+Doubles are not working in callOpenclDependnet (for lower lag, the new code that uses LazyBlob) yet, only in callOpencl (which does 1 ndrange kernel at a time). You can use floats and ints for now.
 
 https://github.com/benrayfield/lazycl/blob/main/immutable/util/Blob.java (immutable bitstring)
 
@@ -34,8 +35,6 @@ Will also support lazyeval of java lambdas that return blobs (such as FloatBuffe
 
 
 
-
-Doubles are not working in callOpenclDependnet (for lower lag, the new code that uses LazyBlob) yet, only in callOpencl (which does 1 ndrange kernel at a time).
 
 
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
