@@ -42,6 +42,10 @@ Will also support lazyeval of java lambdas that return blobs (such as FloatBuffe
 
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
 
+UPDATE: log says: 30000 testFloatSigmoidMatchesBetweenCpuAndGpuExactly tests pass, including gpu says sigmoid(3.1415927)=0.95857614,
+and its computing the sigmoid as doubles then casting to float. It passed all 500k double exp tests, but I gave up on matching java.lang.Strictfp.exp and just match the slightly modified port of it.
+Will have it computing neuralnets deterministicly soon.
+
 UPDATE: Nearly have cpu and gpu computing exact same bits, other than denormal zeros it appears. First 62736 of 500000 testCpuAndGpuOfExponentsOfEOnDoubles tests passed:
 ```
 > return [[D@60f82f98, [D@35f983a6]

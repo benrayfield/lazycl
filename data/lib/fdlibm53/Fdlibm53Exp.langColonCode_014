@@ -29,7 +29,6 @@ opencl1.2:(global double* out, global const double* in){
 
 	const int id = get_global_id(0);
 	double x = in[id];
-	const bool xnan = isnan(x);
 
 	const double one	 = 1.0;
 	//const double[] half = {0.5, -0.5,};
@@ -173,9 +172,7 @@ opencl1.2:(global double* out, global const double* in){
 		}
 	}
 	
-	ret = max(0.0, ret); //observed exp(-709.6305714683294) -> -2.000000258125633 without this while StrictMath.exp got 6.476772186088384E-309 which is a subnormal 
-		
-	if(xnan) ret = as_double(0x7ff8000000000000L); //exp(NaN) -> NaN, and return the sNaN (java compatible) normed form of NaN
+	ret = max(0.0, ret); //observed exp(-709.6305714683294) -> -2.000000258125633 without this while StrictMath.exp got 6.476772186088384E-309 which is a subnormal
 
 	out[id] = ret;	
 }

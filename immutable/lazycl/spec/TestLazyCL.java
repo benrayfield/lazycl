@@ -39,8 +39,10 @@ public strictfp class TestLazyCL{
 			testDoublesInParams(lz);
 			testDoubleLiterals(lz.opencl());
 			testOpencl_matmulDouble(lz.opencl());
-			testCpuAndGpuOfExponentsOfEOnDoubles(lz);
+			testDoubleDivide(lz);
+			testCpuAndGpuOfExponentsOfEOnDoublesMatchExactly(lz);
 		}
+		testFloatSigmoidMatchesBetweenCpuAndGpuExactly(lz);
 		
 		/*
 		> Test pass: testDoublesInParams ins.d(1) should be 4.0
@@ -97,6 +99,21 @@ public strictfp class TestLazyCL{
 	/** by == */
 	public static void testEqq(String testName, Object x, Object y){
 		if(x != y) throw new RuntimeException("TEST FAIL: "+testName+" cuz "+x+" != "+y);
+		lg("Test pass: "+testName);
+	}
+	
+	/** counts nans as equal */
+	public static boolean doublesEqualEvenIfNan(double x, double y){
+		return (x!=x) ^ (x==y);
+	}
+	
+	/** counts nans as equal */
+	public static boolean floatsEqualEvenIfNan(float x, float y){
+		return (x!=x) ^ (x==y);
+	}
+	
+	public static void testEqqCountingNanAsEqual(String testName, double x, double y){
+		if(doublesEqualEvenIfNan(x,y)) throw new RuntimeException("TEST FAIL: "+testName+" cuz "+x+" "+y+" not equal (counting nans as equal to eachother)");
 		lg("Test pass: "+testName);
 	}
 	
@@ -217,8 +234,14 @@ public strictfp class TestLazyCL{
 					"}";
 	*/
 	
+	/** does not norm subnormals */
 	public static double norm(double d){
 		return Double.longBitsToDouble(Double.doubleToLongBits(d));
+	}
+	
+	/** does not norm subnormals */
+	public static float norm(float d){
+		return Float.intBitsToFloat(Float.floatToIntBits(d));
 	}
 	
 	/** randomly sampled from all nonnormed doubles the normed, so each exponent occurs near equally often,
@@ -257,8 +280,13 @@ public strictfp class TestLazyCL{
 		return norm(Double.longBitsToDouble(Rand.strongRand.nextLong())); 
 	}
 	
-	public static strictfp void testCpuAndGpuOfExponentsOfEOnDoubles(Lazycl lz){
-		lg("Starting testCpuAndGpuOfExponentsOfEOnDoubles");
+	/** see randomNormedDouble */
+	public static float randomNormedFloat(){
+		return norm(Float.intBitsToFloat(Rand.strongRand.nextInt()));
+	}
+	
+	public static strictfp void testCpuAndGpuOfExponentsOfEOnDoublesMatchExactly(Lazycl lz){
+		lg("Starting testCpuAndGpuOfExponentsOfEOnDoublesMatchExactly");
 		/*
 		These test are slightly nondeterministic probably cuz using Math.pow func,
 		but they can still generate random tests of the determinism of 2 implementations of exp getting the same answer every time.
@@ -271,7 +299,7 @@ public strictfp class TestLazyCL{
 		> i=65500 exp(Infinity)
 		> i=65510 exp(Infinity)
 		*/
-		double[] ins = new double[500000]; 
+		double[] ins = new double[500000];
 		int j = 0;
 		ins[j++] = 0;
 		ins[j++] = Double.POSITIVE_INFINITY;
@@ -302,6 +330,7 @@ public strictfp class TestLazyCL{
 			ins[j++] = -Math.pow(2,-i)+1;
 		}
 		double[] cpuJavaStrictmathOuts = new double[ins.length];
+		double[] cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit = new double[ins.length]; //this and the opencl version are what I'm planning to use 2021-3-4+
 		double[] cpuFdlibm53ExpOuts = new double[ins.length];
 		double[] openclOuts;
 		
@@ -344,7 +373,17 @@ public strictfp class TestLazyCL{
 		https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 		0 00000000000 00000000000000000000000000000000000000000000000000012
 		≙ 0000 0000 0000 000116 ≙ +2−1022 × 2−52 = 2−1074
-		≈ 4.9406564584124654 × 10−324 (Min. subnormal positive double) 
+		≈ 4.9406564584124654 × 10−324 (Min. subnormal positive double)
+		
+		wolframalpha says...
+		e^-738.3318868685801 = 2.220934342872... × 10^-321
+		https://www.wolframalpha.com/input/?i=e%5E-738.3318868685801
+		..
+		and says
+		e^5.678 =                          292.36411657116124238085756930504066845588286330914615661559509747...
+		javascript says Math.exp(5.678) -> 292.3641165711612
+		https://www.tutorialspoint.com/compile_java_online.php says
+		          StrictMath.exp(5.678) -> 292.3641165711612
 		*/
 		ins[ins.length-1] = -738.3318868685801;
 		
@@ -358,6 +397,8 @@ public strictfp class TestLazyCL{
 		
 		for(int i=0; i<ins.length; i++){
 			cpuJavaStrictmathOuts[i] = StrictMath.exp(ins[i]);
+			//same as LazyclStrictMath.cpuExp(double) as of 2021-3-4
+			//cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i] = MathUtil.setLowBitTo0(LazyclStrictMath.normSubnormals(cpuJavaStrictmathOuts[i]));
 			
 			cpuFdlibm53ExpOuts[i] = Fdlibm53Exp.exp(ins[i]);
 			//javaOutsLowBitAs0[i] = LazyclStrictMath.cpuExp(ins[i]);
@@ -374,36 +415,38 @@ public strictfp class TestLazyCL{
 		long maxDiff = 0;
 		for(int i=0; i<ins.length; i++){
 			
-			long cpuBits = Double.doubleToRawLongBits(cpuJavaStrictmathOuts[i]);
+			long cpuBits = Double.doubleToRawLongBits(cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]);
 			long cpu2Bits = Double.doubleToRawLongBits(cpuFdlibm53ExpOuts[i]);
 			long gpuBits = Double.doubleToRawLongBits(openclOuts[i]);
-			long cpuBitsNorm = Double.doubleToLongBits(cpuJavaStrictmathOuts[i]);
+			long cpuBitsNorm = Double.doubleToLongBits(cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]);
 			long cpu2BitsNorm = Double.doubleToLongBits(cpuFdlibm53ExpOuts[i]);
 			long gpuBitsNorm = Double.doubleToLongBits(openclOuts[i]);
 			//if(cpuBitsNorm != gpuBits || gpuBitsNorm != cpu2BitsNorm){ //if all 3 exp functions dont give exactly the same 64 bits of output
-			if(cpuBits != gpuBits || cpuBits != cpu2Bits){ //if all 3 exp functions dont give exactly the same 64 bits of output
-			//if(cpu2Bits != gpuBits){
+			//if(cpuBits != gpuBits || cpuBits != cpu2Bits){ //if all 3 exp functions dont give exactly the same 64 bits of output
+			if(cpu2Bits != gpuBits){ //dont check StrictMath.exp, cuz I'm only trying to match Fdlibm53Exp.exp with GPU.
 				lg("inBits                        "+MathUtil.bitsToString(Double.doubleToRawLongBits(ins[i]))+" "+ins[i]+" get exp of this");
 				lg(" . . ");
-				lg("cpuOutBits                    "+MathUtil.bitsToString(cpuBits)+" "+cpuJavaStrictmathOuts[i]+" an exp output");
+				lg("cpuJavaStrictmathOuts         "+MathUtil.bitsToString(Double.doubleToRawLongBits(cpuJavaStrictmathOuts[i]))+" "+cpuJavaStrictmathOuts[i]+" an exp output");
+				lg(" . . ");
+				lg("cpuOutBits                    "+MathUtil.bitsToString(cpuBits)+" "+cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]+" an exp output");
 				lg("cpu2OutBits                   "+MathUtil.bitsToString(cpu2Bits)+" "+cpuFdlibm53ExpOuts[i]+" an exp output");
 				lg("gpuOutBits                    "+MathUtil.bitsToString(gpuBits)+" "+openclOuts[i]+" an exp output");
 				lg(" . . ");
 				lg("diffFirst2                    "+MathUtil.bitsToString(cpuBits^cpu2Bits));
 				lg("diffSecond2                   "+MathUtil.bitsToString(cpu2Bits^gpuBits));
-				lg("as doubles do first 2 ==:     "+(cpuJavaStrictmathOuts[i]==cpuFdlibm53ExpOuts[i]));
+				lg("as doubles do first 2 ==:     "+(cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]==cpuFdlibm53ExpOuts[i]));
 				lg("as doubles do secopnd 2 ==:   "+(cpuFdlibm53ExpOuts[i]==openclOuts[i]));
-				lg("as doubles do 1st and 3rd ==: "+(cpuJavaStrictmathOuts[i]==openclOuts[i]));
+				lg("as doubles do 1st and 3rd ==: "+(cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]==openclOuts[i]));
 				lg(" . . NORMS...");
-				lg("cpuOutBits                    "+MathUtil.bitsToString(cpuBitsNorm)+" "+cpuJavaStrictmathOuts[i]+" an exp output");
+				lg("cpuOutBits                    "+MathUtil.bitsToString(cpuBitsNorm)+" "+cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]+" an exp output");
 				lg("cpu2OutBits                   "+MathUtil.bitsToString(cpu2BitsNorm)+" "+cpuFdlibm53ExpOuts[i]+" an exp output");
 				lg("gpuOutBits                    "+MathUtil.bitsToString(gpuBitsNorm)+" "+openclOuts[i]+" an exp output");
 				lg(" . . ");
 				lg("diffFirst2                    "+MathUtil.bitsToString(cpuBitsNorm^cpu2BitsNorm));
 				lg("diffSecond2                   "+MathUtil.bitsToString(cpu2BitsNorm^gpuBitsNorm));
-				lg("as doubles do first 2 ==:     "+(cpuJavaStrictmathOuts[i]==cpuFdlibm53ExpOuts[i]));
+				lg("as doubles do first 2 ==:     "+(cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]==cpuFdlibm53ExpOuts[i]));
 				lg("as doubles do secopnd 2 ==:   "+(cpuFdlibm53ExpOuts[i]==openclOuts[i]));
-				lg("as doubles do 1st and 3rd ==: "+(cpuJavaStrictmathOuts[i]==openclOuts[i]));
+				lg("as doubles do 1st and 3rd ==: "+(cpuJavaStrictmathOutsButNormSubnormalsThenDropLowBit[i]==openclOuts[i]));
 				lg("");
 				lg("FIXME: 2021-3-21 since changing the c= line changed the output of Fdlibm53, todo compute it using BigDecimal (or compute it using boolean[] which I can do very slowly) etc and find which is more precise in math, which is probably StrictMath, but verify that and figure out what order of ops its using and write them in that order. Make all 3 match.");
 				lg("First "+i+" of "+ins.length+" testCpuAndGpuOfExponentsOfEOnDoubles tests passed.");
@@ -522,7 +565,24 @@ public strictfp class TestLazyCL{
 			at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:17)
 			at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
 		 */
-		lg("testCpuAndGpuOfExponentsOfEOnDoubles tests pass, of "+ins.length+" calls of exp(double)->double that match exactly between cpu and gpu, in both cases using Fdlibm53.");
+		lg("testCpuAndGpuOfExponentsOfEOnDoublesMatchExactly tests pass, of "+ins.length+" calls of exp(double)->double that match exactly between cpu and gpu, in both cases using Fdlibm53.");
+	}
+	
+	public static strictfp void testFloatSigmoidMatchesBetweenCpuAndGpuExactly(Lazycl lz){
+		lg("Starting testFloatSigmoidMatchesBetweenCpuAndGpuExactly");
+		float[] ins = new float[30000];
+		for(int i=0; i<ins.length; i++){
+			ins[i] = randomNormedFloat();
+		}
+		ins[0] = (float)Math.PI;
+		float[] cpuOuts = LazyclStrictMath.cpuSigmoids(ins);
+		float[] gpuOuts = LazyclStrictMath.gpuSigmoids(lz, ins);
+		if(cpuOuts.length != ins.length) throw new RuntimeException("cpuOuts.length="+cpuOuts.length);
+		if(gpuOuts.length != ins.length) throw new RuntimeException("gpuOuts.length="+gpuOuts.length);
+		for(int i=0; i<ins.length; i++){
+			if(!floatsEqualEvenIfNan(cpuOuts[i],gpuOuts[i])) throw new RuntimeException(cpuOuts[i]+" == cpuOuts["+i+"] != gpuOuts["+i+"] "+gpuOuts[i]+", (float)(1/(1+StrictMath.exp("+ins[i]+"))="+(float)(1/(1+StrictMath.exp(ins[i]))));
+		}
+		lg(ins.length+" testFloatSigmoidMatchesBetweenCpuAndGpuExactly tests pass, including gpu says sigmoid("+ins[0]+")="+gpuOuts[0]);
 	}
 	
 	/** TODO same bits as sigmoidOfFloatArrayOpenclCode, cuz need determinism for merkle hashing.
@@ -542,10 +602,12 @@ public strictfp class TestLazyCL{
 		LazyBlob firstNodeStates = lz.wrap(float.class, nodes, (int i)->(((i*i*i)%19f)/19f)); //range 0 to 1
 		LazyBlob nodeStates = firstNodeStates;
 		LazyBlob weights = lz.wrap(float.class, nodes*nodes, (int i)->(((i*i+17+Math.pow(i,1.5))%23f)/23f * 6 - 3)); //range -3 to 3
-		String sigmoidOfArrayCode = "opencl1.2:(global float* outs, global const float* ins){\n"+
+		/*String sigmoidOfArrayCode = "opencl1.2:(global float* out, global const float* in){\n"+
 			"	int id = get_global_id(0);\n"+
-			"	outs[id] = 1.0f/(1.0f+(float)exp(-(double)ins[id]));\n"+
+			"	out[id] = 1.0f/(1.0f+(float)exp(-(double)in[id]));\n"+
 			"}";
+		*/
+		String sigmoidOfArrayCode = LazyclStrictMath.readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53SigmoidFloatButUsesDoubles.langColonCode");
 		for(int cycle=0; cycle<cyclesDeep; cycle++){
 			//matmul then sigmoid. its a [1*nodes] by [nodes*nodes] matmul in this simple test.
 			LazyBlob weightedSums = lz.lazycl(
@@ -560,11 +622,10 @@ public strictfp class TestLazyCL{
 				"cd", weights
 			);
 			nodeStates = lz.lazycl(
-				//TODO "Code", sigmoidOfFloatArrayOpenclCode,
 				"Code", sigmoidOfArrayCode,
 				"Bize", nodes*32L, //float is 32 bits
 				"GlobalSize", nodes,
-				"ins", weightedSums
+				"in", weightedSums
 			);
 		}
 		LazyBlob openclOut = nodeStates;
@@ -580,7 +641,8 @@ public strictfp class TestLazyCL{
 					sum += cpuNodeStates[nodeFrom]*cpuWeights[nodeFrom*nodes+nodeTo]; //FIXME is that backward?
 				}
 				//FIXME implement exp using arithmetic instead of the nonstandard ways it might differ between opencl.exp and java.lang.Math.exp
-				cpuNextNodeStates[nodeTo] = 1f/(1f+(float)Math.exp(-sum));
+				//cpuNextNodeStates[nodeTo] = 1f/(1f+(float)Math.exp(-sum));
+				cpuNextNodeStates[nodeTo] = LazyclStrictMath.cpuSigmoid(-sum);
 			}
 		}
 		float[] cpuOut = cpuNextNodeStates;
@@ -595,8 +657,6 @@ public strictfp class TestLazyCL{
 				+" diff="+Math.abs(openclOutForNode-cpuOutForNode)
 				+" If its very close, check for strictfp differences in different systems or the use of different algorithms to approximate exponents of e or things like that");
 		}
-		
-		//"TODO compute it in cpu and verify same strictfp bits"
 		
 		lg("firstNodeStates.bize = "+firstNodeStates.bize());
 		lg("nodeStates.bize = "+nodeStates.bize());
@@ -742,6 +802,38 @@ public strictfp class TestLazyCL{
 		testEq("testDoublesInCode squares3", squares.f(0), 9f);
 		testEq("testDoublesInCode squares4", squares.f(1), 16f);
 		testEq("testDoublesInCode squares5", squares.f(2), 25f);
+	}
+	
+	public static void testDoubleDivide(Lazycl lz){
+		lg("Starting testDoubleDivide");
+		int size = 200000;
+		double[] inA = new double[size];
+		double[] inB = new double[size];
+		double[] correctOut = new double[size];
+		for(int i=0; i<size; i++){
+			inA[i] = randomNormedDouble();
+			inB[i] = randomNormedDouble();
+			correctOut[i] = inA[i]/inB[i];
+		}
+		LazyBlob divides = lz.lazycl(
+			"Code",
+				"opencl1.2:(global double* outs, global const double* inA, global const double* inB){\n"+
+				"	int id = get_global_id(0);\n"+
+				"	outs[id] = inA[id]/inB[id];\n"+
+				"}",
+			"Bize", size*64L,
+			"GlobalSize", size,
+			//TODO also use LocalSize of new int[]{32,32} or 32, and GlobalSize of new int[]{something,32}
+			"inA", inA,
+			"inB", inB
+		);
+		for(int i=0; i<size; i++){
+			double openclOut = divides.d(i);
+			if(!doublesEqualEvenIfNan(openclOut,correctOut[i])) throw new RuntimeException(
+				"testDoublesInCode test "+i+" fails cuz opencl says "
+				+inA[i]+"/"+inB[i]+" == "+openclOut+" but java (IEEE754) says "+correctOut[i]);
+		}
+		lg("testDoubleDivide tests pass, of "+size+" tests");
 	}
 	
 	public static void testDoubleLiterals(OpenCL cl){

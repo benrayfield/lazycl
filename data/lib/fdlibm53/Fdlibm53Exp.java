@@ -2,7 +2,12 @@ package data.lib.fdlibm53; //TODO what package? careful about classpath exceptio
 
 import immutable.util.Pair;
 
-/** 2021-2-23+ Ben F Rayfield is copying openjdk11 java.lang.FdLibm.exp(double),
+/** 2021-3-4 dropping support for java.lang.StrictMath.exp(double) cuz could not make it match exactly
+but does appear to always match within 1 ulp (lowest digit, with carrying),
+so the plan is to use this cpu port (Fdlibm53Exp.java) and gpu port (Fdlibm53Exp.langColonCode) which seem to always match exactly,
+either that or some faster less precise way of doing exp(float)->float cuz what I really want is determinism, not more precision.
+<br><br>
+and2021-2-23+ Ben F Rayfield is copying openjdk11 java.lang.FdLibm.exp(double),
 which is [GNU GPL2 + classpath exception] licensed, as in this data/lib dir,
 to here to reproduce it in a single function before porting it to opencl1.2.
 TODO create Fdlibm53Exp.cl in data/lib and load it from opencl as an ndrange kernel
@@ -12,14 +17,20 @@ so there will be 2 cpu implementations and 1 gpu implementation, which all match
 */
 public strictfp class Fdlibm53Exp{
 	
-	/** ??? deterministic, matches between cpu and gpu, and matches java.lang.StrictMath.exp(double). TODO verify. */
+	/** ??? deterministic, matches between cpu and gpu, and matches normSubnormals(setLowBitTo0(java.lang.StrictMath.exp(double))). TODO verify. */
 	public static double exp(double x){
 		return expUsingRawDoubleLongTransform(x);
+		//return setLowBitTo0(expUsingRawDoubleLongTransform(x));
 		//return expUsingNormedDoubleLongTransform(x);
 	}
 	
+	/** This is an experiment to get cpu and gpu to compute exp the exact same way, sacrificing a bit of precision */
+	protected static double setLowBitTo0(double d){
+		return Double.longBitsToDouble(Double.doubleToLongBits(d)&(-2L));
+	}
+	
 	/** the long should match the long in Fdlibm53Exp_withExtraOutputForDebug.langColonCode */
-	public static Pair<Double,Long> expUsingNormedDoubleLongTransform_withExtraOutputForDebug(double x){
+	protected static Pair<Double,Long> expUsingNormedDoubleLongTransform_withExtraOutputForDebug(double x){
 	
 		long debug = 0L;
 		
@@ -232,7 +243,7 @@ public strictfp class Fdlibm53Exp{
 		return new Pair(ret,debug);
 	}
 	
-	public static double expUsingNormedDoubleLongTransform(double x){
+	protected static double expUsingNormedDoubleLongTransform(double x){
 	
 		
 		final double one	 = 1.0;
@@ -413,7 +424,7 @@ public strictfp class Fdlibm53Exp{
 		
 	}
 	
-	public static double expUsingRawDoubleLongTransform(double x){
+	protected static double expUsingRawDoubleLongTransform(double x){
 	
 		
 		final double one	 = 1.0;
@@ -591,13 +602,15 @@ public strictfp class Fdlibm53Exp{
 			}
 		}
 		
+		ret = Math.max(0, ret); //observed exp(-709.6305714683294) -> -2.000000258125633 without this while StrictMath.exp got 6.476772186088384E-309 which is a subnormal
+		
 		return ret;
 		
 	}
 	
 	
 	
-	public static double exp_usingHIAndLOFuncs(double x){
+	protected static double exp_usingHIAndLOFuncs(double x){
 		//TODO split those arrays, so theres only primitives.
 		
 		final double one	 = 1.0;
@@ -707,29 +720,29 @@ public strictfp class Fdlibm53Exp{
 	}
 	
 	/** Return the low-order 32 bits of the double argument as an int. */
-	private static int __LO(double x){
+	protected static int __LO(double x){
 		return (int)as_raw_long(x);
 	}
 	
 	/** Return the high-order 32 bits of the double argument as an int. */
-	private static int __HI(double x){
+	protected static int __HI(double x){
 		return (int)(as_raw_long(x)>>32);
 	}
 	
 	/** might change this to as_raw_long later if get cpu and gpu to match that way, for speed */
-	private static long as_long(double x){
+	protected static long as_long(double x){
 		return as_normed_long(x);
 	}
 	
-	private static long as_normed_long(double x){
+	protected static long as_normed_long(double x){
 		return Double.doubleToLongBits(x);
 	}
 	
-	private static long as_raw_long(double x){
+	protected static long as_raw_long(double x){
 		return Double.doubleToRawLongBits(x);
 	}
 	
-	private static double as_double(long x){
+	protected static double as_double(long x){
 		return Double.longBitsToDouble(x);
 	}
 
@@ -737,15 +750,53 @@ public strictfp class Fdlibm53Exp{
 	and the low-order bits of the first argument.
 	//__HI(double x, int high) == as_double((as_raw_long(x)&0xffffffffL)|(((long)high))<<32)
 	*/
-	private static double __HI(double x, int high) {
+	protected static double __HI(double x, int high) {
 		return as_double((as_raw_long(x)&0xffffffffL)|(((long)high))<<32);
 	}
 	
 	public static void main(String[] args){
+		boolean first = true;
 		for(double d=-4.353121424351; d<710; d+=.09123217){
+			if(first){
+				/*
+				> inBits                        1100000010000111000100101010011110110100010011010111010000110000 -738.3318868685801 get exp of this
+				>  . . 
+				> cpuOutBits                    0000000000000000000000000000000000000000000000000000000111000010 2.223E-321 an exp output
+				> cpu2OutBits                   0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+				> gpuOutBits                    0000000000000000000000000000000000000000000000000000000000000000 0.0 an exp output
+				>  . . 
+				> diffFirst2                    0000000000000000000000000000000000000000000000000000000111000010
+				> diffSecond2                   0000000000000000000000000000000000000000000000000000000000000000
+				> as doubles do first 2 ==:     false
+				> as doubles do secopnd 2 ==:   true
+				> as doubles do 1st and 3rd ==: false
+				> 
+				> FIXME: 2021-3-21 since changing the c= line changed the output of Fdlibm53, todo compute it using BigDecimal (or compute it using boolean[] which I can do very slowly) etc and find which is more precise in math, which is probably StrictMath, but verify that and figure out what order of ops its using and write them in that order. Make all 3 match.
+				Exception in thread "main" java.lang.RuntimeException: Test fail at i=62631
+					at immutable.lazycl.spec.TestLazyCL.testCpuAndGpuOfExponentsOfEOnDoubles(TestLazyCL.java:368)
+				
+				"2.223E-321" an exp output. Very near "4.9406564584124654 × 10−324".
+				https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+				0 00000000000 00000000000000000000000000000000000000000000000000012
+				≙ 0000 0000 0000 000116 ≙ +2−1022 × 2−52 = 2−1074
+				≈ 4.9406564584124654 × 10−324 (Min. subnormal positive double)
+				
+				wolframalpha says...
+				e^-738.3318868685801 = 2.220934342872... × 10^-321
+				https://www.wolframalpha.com/input/?i=e%5E-738.3318868685801
+				..
+				and says
+				e^5.678 =                          292.36411657116124238085756930504066845588286330914615661559509747...
+				javascript says Math.exp(5.678) -> 292.3641165711612
+				https://www.tutorialspoint.com/compile_java_online.php says
+				          StrictMath.exp(5.678) -> 292.3641165711612
+				*/
+				d = -738.3318868685801;
+				first = false;
+			}
 			double javaSays = StrictMath.exp(d);
 			double thisClassSays = expUsingRawDoubleLongTransform(d);
-			String s = "exp("+d+") javaSays="+javaSays+" thisClassSays="+thisClassSays;
+			String s = "exp("+d+") javaSays="+javaSays+" thisClassSays="+thisClassSays+" but as you see in comment of "+Fdlibm53Exp.class.getName()+" I gave up on exactly matching StrictMath.exp to gpu and instead only match this port of StrictMath with the gpu.";
 			System.out.println(s);
 			if(javaSays != thisClassSays) throw new RuntimeException(s);
 		}

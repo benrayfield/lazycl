@@ -12,8 +12,33 @@ public strictfp class LazyclStrictMath{
 	
 	/** same bits as gpu computing exp */
 	public static double cpuExp(double x){
-		return StrictMath.exp(x);
+		return normSubnormals(MathUtil.setLowBitTo0(StrictMath.exp(x)));
+		//return StrictMath.exp(x);
 		//return MathUtil.setLowBitTo0(StrictMath.exp(x));
+	}
+	
+	public static double cpuSigmoid(double x){
+		return 1/(1+cpuExp(-x));
+	}
+	
+	public static float cpuSigmoid(float x){
+		return (float)cpuSigmoid((double)x);
+	}
+	
+	public static float[] cpuSigmoids(float... x){
+		float[] ret = new float[x.length];
+		for(int i=0; i<x.length; i++) ret[i] = cpuSigmoid(x[i]);
+		return ret;
+	}
+	
+	public static float[] gpuSigmoids(Lazycl lz, float... x){
+		return (float[]) lz.opencl().callOpencl(
+			LazyclStrictMath.readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53SigmoidFloatButUsesDoubles.langColonCode"),
+			new int[]{x.length}, //globalSize
+			null, //localSize
+			new float[x.length], //ignores this other than to get its size
+			x
+		)[0]; //return replacement of x
 	}
 	
 	/** Same as setLowBitTo0(java.lang.StrictMath.exp(x)), computed in opencl,
@@ -34,7 +59,7 @@ public strictfp class LazyclStrictMath{
 			return exps(lz, lz.wrapc(x)).arr(double[].class);
 		}else{
 			return (double[]) lz.opencl().callOpencl(
-				//readStringFromRelFileCached("/data/lib/Fdlibm53ExpExceptSetLowBitOfReturnedDoubleTo0.langColonCode"),
+				//readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53ExpExceptSetLowBitOfReturnedDoubleTo0.langColonCode"),
 					readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53Exp.langColonCode"),
 				new int[]{x.length},
 				null,
@@ -53,7 +78,7 @@ public strictfp class LazyclStrictMath{
 	*/
 	public static Pair<double[],long[]> exp_withExtraOutputForDebug(Lazycl lz, double[] x){
 		Object[] out = lz.opencl().callOpencl(
-			readStringFromRelFileCached("/data/lib/Fdlibm53Exp_withExtraOutputForDebug.langColonCode"),
+			readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53Exp_withExtraOutputForDebug.langColonCode"),
 			new int[]{x.length},
 			null,
 			
@@ -66,11 +91,16 @@ public strictfp class LazyclStrictMath{
 		return new Pair((double[])out[0], (long[])out[1]);
 	}
 	
+	/** change subnormals to 0. Does not norm infinites or nans. */
+	public static double normSubnormals(double d){
+		return (-Double.MIN_NORMAL < d && d < Double.MIN_NORMAL) ? 0. : d;
+	}
+	
 	/** Same as multiple calls of java.lang.StrictMath.exp(x), computed in opencl in 1 parallel call.
 	For each in double[], same as java.lang.StrictMath.exp(double), returns double[] same size */
 	public static LazyBlob exps(Lazycl lz, LazyBlob doubles){
 		return lz.lazycl(
-			"Code", readStringFromRelFileCached("/data/lib/Fdlibm53Exp.langColonCode"),
+			"Code", readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53Exp.langColonCode"),
 			"Bize", doubles.bize(),
 			"GlobalSize", doubles.bize()/64,
 			"in", doubles

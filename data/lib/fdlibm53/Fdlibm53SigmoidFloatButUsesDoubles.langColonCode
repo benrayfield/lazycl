@@ -1,4 +1,5 @@
-opencl1.2:(global double* out, global const double* in){
+opencl1.2:(global float* out, global const float* in){
+	//opencl1.2:(global double* out, global const double* in){
 
 	/* return setLowBitTo0(exp(x)) the same as java setLowBitTo0(StrictMath.exp(double))
 	such as setLowBitTo0(openjdk11 java.lang.FdLibm.exp(double) which this code is ported from).
@@ -28,7 +29,11 @@ opencl1.2:(global double* out, global const double* in){
 	*/
 
 	const int id = get_global_id(0);
-	double x = in[id];
+	//double x = in[id];
+	double x = (float)in[id];
+	
+	x = -x; //cuz sigmoid(x)=1.0/(1.0+e^-x).
+	
 	const bool xnan = isnan(x);
 
 	const double one	 = 1.0;
@@ -177,5 +182,6 @@ opencl1.2:(global double* out, global const double* in){
 		
 	if(xnan) ret = as_double(0x7ff8000000000000L); //exp(NaN) -> NaN, and return the sNaN (java compatible) normed form of NaN
 
-	out[id] = ret;	
+	//out[id] = ret;
+	out[id] = (float)(1.0/(1.0+ret));
 }
