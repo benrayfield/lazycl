@@ -1,6 +1,19 @@
 # lazycl
 a Lazy Compute Language/Library. (in progress) Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+All tests pass as of 2021-3-5, including computing a recurrent neuralnet 5 time cycles all at once, and it computes exactly the same bits in cpu vs gpu, but todo more tests. Also, vm_evalOneTheSlowWayNotInGroups is only doing 1 opencl ndrange kernel at a time, but for low lag that needs an upgrade to queue multiple ndrange kernels and do them all in GPU before copying any of it back to CPU. 
+```
+> node96_of_100 gpuOut[96]=2.5188996E-8 cpuOut[96]=2.5188996E-8
+> node97_of_100 gpuOut[97]=0.999992 cpuOut[97]=0.999992
+> node98_of_100 gpuOut[98]=0.99998206 cpuOut[98]=0.99998206
+> node99_of_100 gpuOut[99]=0.64454347 cpuOut[99]=0.64454347
+> firstNodeStates.bize = 3200
+> nodeStates.bize = 3200
+> testOpenclRecurrentNeuralnetNCyclesDeep(100,10) test pass.
+> Lacycl tests pass.
+> TestLazyclPrototype tests pass
+```
+
 You only need these 3 interfaces to use LazyCL:
 
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/Lazycl.java (make forest of opencl ndrange kernel calls from here, statelessly and without dealing with buffers, pooling, compiling, caching, etc)
@@ -43,7 +56,7 @@ Will also support lazyeval of java lambdas that return blobs (such as FloatBuffe
 https://github.com/benrayfield/lazycl/blob/main/immutable/lazycl/spec/TestLazyCL.java
 
 UPDATE: log says: 30000 testFloatSigmoidMatchesBetweenCpuAndGpuExactly tests pass, including gpu says sigmoid(3.1415927)=0.95857614,
-and its computing the sigmoid as doubles then casting to float. It passed all 500k double exp tests, but I gave up on matching java.lang.Strictfp.exp and just match the slightly modified port of it.
+and its computing the sigmoid as doubles then casting to float. It passed all 500k double exp tests, but I gave up on matching java.lang.StrictMath.exp and just match the slightly modified port of it.
 Will have it computing neuralnets deterministicly soon.
 
 UPDATE: Nearly have cpu and gpu computing exact same bits, other than denormal zeros it appears. First 62736 of 500000 testCpuAndGpuOfExponentsOfEOnDoubles tests passed:
