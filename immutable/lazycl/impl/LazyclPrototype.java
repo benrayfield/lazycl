@@ -2,6 +2,7 @@
 package immutable.lazycl.impl;
 import static mutable.util.Lg.*;
 
+import immutable.dependtask.LockState;
 import immutable.lazycl.impl.blob.ByteArrayBlob;
 import immutable.lazycl.impl.blob.ByteBufferBlob;
 import immutable.lazycl.impl.blob.FloatBufferBlob;
@@ -21,7 +22,6 @@ import mutable.dependtask.DependOp;
 import mutable.dependtask.DependParam;
 import mutable.dependtask.ForkSize;
 import mutable.dependtask.LockPar;
-import mutable.dependtask.LockState;
 import mutable.dependtask.SyMem;
 import mutable.dependtask.mem.FSyMem;
 import mutable.dependtask.mem.Mem;
@@ -145,7 +145,11 @@ public strictfp class LazyclPrototype implements Lazycl{
 	protected final LazyBlob falseAsLazyBlob = lb(falseAsBlob);
 	
 	protected LazyBlob wrap(boolean forceCopy, Object o){
-		if(o instanceof LazyBlob) return (LazyBlob)o; //Dont copy even if forceCopy cuz LazyBlob supposed to be immutable
+		if(o instanceof Blob){
+			//Dont copy even if forceCopy cuz Blob supposed to be immutable
+			//stay as LazyBlob or wrap in LazyBlob
+			return lb((Blob)o);
+		}
 		if(o instanceof Boolean){
 			return (Boolean)o ? trueAsLazyBlob : falseAsLazyBlob;
 			
@@ -164,6 +168,8 @@ public strictfp class LazyclPrototype implements Lazycl{
 			//TODO optimize by creating a Blob type for double[], a blob type for float[], a blob type for int[], etc
 			//but for now just convert it to byte array first.
 			return wrap(forceCopy,MathUtil.floatsToBytes((float[])o));
+		}else if(o instanceof int[]){
+			return wrap(forceCopy,MathUtil.intsToBytes((int[])o));
 		}else if(o instanceof Integer){
 			//TODO optimize by creating a differerent wrapper class for each primitive array type, and this would be int[1]
 			//but for now just put everything in wrapper of byte[]
@@ -499,7 +505,9 @@ public strictfp class LazyclPrototype implements Lazycl{
 					lockDependParams.add(new LockPar(LockState.writeLock, dp));
 				}else{ //read
 					LazyBlob paramVal = param(params,paramName);
-					if(paramVal == null) throw new RuntimeException("No param named "+paramName);
+					if(paramVal == null){
+						throw new RuntimeException("No param named "+paramName+" in "+params+" and Code="+langColonCode);
+					}
 					Class inputEltype;
 					long bize = paramVal.bize(); //FIXME in SimpleLazyBlob bize() shouldnt trigger lazyEval, but it appears 2020-11-25 it does
 					int inputSizeInUnitsOfEltype;

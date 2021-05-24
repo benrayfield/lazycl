@@ -2,6 +2,8 @@ package immutable.lazycl.impl.blob;
 
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
 import org.lwjgl.BufferUtils;
 
 import immutable.util.Blob;
@@ -9,6 +11,7 @@ import immutable.util.Blob;
 public abstract class AbstractBlob implements Blob{
 	
 	public <T> T arr(Class<T> type, long bitFrom, long bitToExcl){
+		if(bitFrom != 0) throw new RuntimeException("TODO allow bitFrom!=0, it is "+bitFrom);
 		//int mask = pize()-1;
 		//if((bitFrom&mask) != 0 || (bitToExcl&mask) != 0) throw new RuntimeException("TODO not aligned on blocks of "+pize()+" bits. Should still work (dont forget to ieee754 norm if isFloat) but todo write the code.");
 		long biz = bitToExcl-bitFrom;
@@ -19,6 +22,12 @@ public abstract class AbstractBlob implements Blob{
 			float[] retF = new float[sizeInUnitsOfPrims];
 			for(int i=0; i<retF.length; i++) retF[i] = f(i);
 			return (T)retF;
+		}else if(type == IntBuffer.class){
+			int sizeInUnitsOfPrims = (int)(biz>>5);
+			if(sizeInUnitsOfPrims<<5 != biz) throw new RuntimeException("TODO not aligned on blocks of int size");
+			IntBuffer ret = BufferUtils.createIntBuffer(sizeInUnitsOfPrims); //FIXME move this out of spec and into an impl
+			for(int i=0; i<sizeInUnitsOfPrims; i++) ret.put(i, i(i));
+			return (T)ret;
 		}else if(type == FloatBuffer.class){
 			int sizeInUnitsOfPrims = (int)(biz>>5);
 			if(sizeInUnitsOfPrims<<5 != biz) throw new RuntimeException("TODO not aligned on blocks of float size");

@@ -3,11 +3,12 @@ package immutable.lazycl.spec;
 import static mutable.util.Lg.*;
 import java.util.Arrays;
 
-import data.lib.fdlibm53.Fdlibm53Exp;
 import immutable.opencl.OpenCL;
+import immutable.util.Blob;
 import immutable.util.MathUtil;
 import immutable.util.Pair;
-import mutable.compilers.opencl.lwjgl.LwjglOpenCL;
+import data.lib.fdlibm53.Fdlibm53Exp;
+import mutable.util.Files;
 import mutable.util.Rand;
 import mutable.util.ui.ScreenUtil;
 
@@ -34,6 +35,7 @@ public strictfp class TestLazyCL{
 		//testDownload(lz);
 		testOpencl(lz.opencl(),includeDoubles);
 		testOpenclMatmul(lz);
+		testLazyclInts(lz);
 		if(includeDoubles){
 			testDoublesInCode(lz);
 			testDoublesInParams(lz);
@@ -41,8 +43,8 @@ public strictfp class TestLazyCL{
 			testOpencl_matmulDouble(lz.opencl());
 			testDoubleDivide(lz);
 			testCpuAndGpuOfExponentsOfEOnDoublesMatchExactly(lz);
+			testFloatSigmoidMatchesBetweenCpuAndGpuExactly_usesDoublesInSigmoidThenCastToFloat(lz);
 		}
-		testFloatSigmoidMatchesBetweenCpuAndGpuExactly(lz);
 		
 		/*
 		> Test pass: testDoublesInParams ins.d(1) should be 4.0
@@ -86,6 +88,9 @@ public strictfp class TestLazyCL{
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 5, 1);
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 5, 2);
 		testOpenclRecurrentNeuralnetNCyclesDeep(lz, 100, 10);
+		
+		
+		
 		//testAcylicFlow(lz);
 		lg("Lacycl tests pass.");
 	}
@@ -406,7 +411,7 @@ public strictfp class TestLazyCL{
 			//fdlibm53Exp_normed_outs_pairs[i] = Fdlibm53Exp.expUsingNormedDoubleLongTransform_withExtraOutputForDebug(ins[i]);
 			
 		}
-		openclOuts = LazyclStrictMath.exps(lz, ins);
+		openclOuts = LazyclStrictMath.cpuExps(lz, ins);
 		//Pair<double[],long[]> openclOutsWithDebug = LazyclStrictMath.exp_withExtraOutputForDebug(lz, ins);
 		//double[] openclOuts = openclOutsWithDebug.l;
 		//long[] openclDebug = openclOutsWithDebug.r;
@@ -567,35 +572,60 @@ public strictfp class TestLazyCL{
 		lg("testCpuAndGpuOfExponentsOfEOnDoublesMatchExactly tests pass, of "+ins.length+" calls of exp(double)->double that match exactly between cpu and gpu, in both cases using Fdlibm53.");
 	}
 	
-	public static strictfp void testFloatSigmoidMatchesBetweenCpuAndGpuExactly(Lazycl lz){
+	public static strictfp void testFloatSigmoidMatchesBetweenCpuAndGpuExactly_usesDoublesInSigmoidThenCastToFloat(Lazycl lz){
 		lg("Starting testFloatSigmoidMatchesBetweenCpuAndGpuExactly");
 		float[] ins = new float[30000];
 		for(int i=0; i<ins.length; i++){
 			ins[i] = randomNormedFloat();
 		}
 		ins[0] = (float)Math.PI;
-		float[] cpuOuts = LazyclStrictMath.cpuSigmoids(ins);
-		float[] gpuOuts = LazyclStrictMath.gpuSigmoids(lz, ins);
-		if(cpuOuts.length != ins.length) throw new RuntimeException("cpuOuts.length="+cpuOuts.length);
-		if(gpuOuts.length != ins.length) throw new RuntimeException("gpuOuts.length="+gpuOuts.length);
-		for(int i=0; i<ins.length; i++){
-			if(!floatsEqualEvenIfNan(cpuOuts[i],gpuOuts[i])) throw new RuntimeException(cpuOuts[i]+" == cpuOuts["+i+"] != gpuOuts["+i+"] "+gpuOuts[i]+", (float)(1/(1+StrictMath.exp("+ins[i]+"))="+(float)(1/(1+StrictMath.exp(ins[i]))));
+		
+		float[] cpuOuts = null;
+		float[] gpuOuts = null;
+		String name = null;
+		for(int j=0; j<4; j++){
+			lg("j="+j);
+			switch(j){
+			case 0:
+				name = "SIGMOIDS";
+				cpuOuts = LazyclStrictMath.cpuSigmoids(ins);
+				gpuOuts = LazyclStrictMath.gpuSigmoids(lz, ins);
+			break;
+			case 1:
+				name = "SIGMOIDDERIVS";
+				cpuOuts = LazyclStrictMath.cpuSigmoidDerivs(ins);
+				gpuOuts = LazyclStrictMath.gpuSigmoidDerivs(lz, ins);
+			break;
+			case 2:
+				name = "TANHS";
+				cpuOuts = LazyclStrictMath.cpuTanhs(ins);
+				gpuOuts = LazyclStrictMath.gpuTanhs(lz, ins);
+			break;
+			case 3:
+				name = "TANHDERIVS";
+				cpuOuts = LazyclStrictMath.cpuTanhDerivs(ins);
+				gpuOuts = LazyclStrictMath.gpuTanhDerivs(lz, ins);
+			}
+			if(cpuOuts.length != ins.length) throw new RuntimeException("cpuOuts.length="+cpuOuts.length);
+			if(gpuOuts.length != ins.length) throw new RuntimeException("gpuOuts.length="+gpuOuts.length);
+			for(int i=0; i<ins.length; i++){
+				if(!floatsEqualEvenIfNan(cpuOuts[i],gpuOuts[i])) throw new RuntimeException(name+i+": "+cpuOuts[i]+" == cpuOuts["+i+"] != gpuOuts["+i+"] == "+gpuOuts[i]+", x="+ins[i]+" StrictMath.exp("+ins[i]+")="+StrictMath.exp(ins[i])+" StrictMath.tanh="+StrictMath.tanh(ins[i]));
+			}
+			lg(ins.length+" "+name+" testFloatSigmoidMatchesBetweenCpuAndGpuExactly tests pass, including gpu says sigmoid("+ins[0]+")="+gpuOuts[0]);
 		}
-		lg(ins.length+" testFloatSigmoidMatchesBetweenCpuAndGpuExactly tests pass, including gpu says sigmoid("+ins[0]+")="+gpuOuts[0]);
 	}
 	
-	/** TODO same bits as sigmoidOfFloatArrayOpenclCode, cuz need determinism for merkle hashing.
-	Theres a calculation of exponent of e in (double)java.lang.FdLibm.Exp.compute(double),
-	which says "should be able to forgo strictfp due to controlled over/underflow",
-	but maybe cant use that one exactly cuz it uses Double.longBitsToDouble,
-	and TODO does opencl have that op? opencl (todo which version) has as_int(float) and as_float(int) ops,
-	but what about raw vs normed form? I need the normed form.
-	If I'm already using compiler param "-cl-opt-disable" (see that string in Lwjgl.java) will it be the normed form?
-	https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf says opencl1.2 has as_int(float).
-	*
-	public static float sigmoid(float x){
-		throw new RuntimeException("TODO");
-	}*/
+	/*FIXME
+	clFinish queue
+	> copy param 0 from (somekindof)Buffer to array
+	> copy param 1 from (somekindof)Buffer to array
+	> return [[F@1ad282e0, [F@7f416310]
+	Exception in thread "main" java.lang.RuntimeException: 3.7860826E-11 == cpuOuts[39] != gpuOuts[39] 3.7860992E-11, (float)(1/(1+StrictMath.exp(3.7860905E-11))=0.5
+		at immutable.lazycl.spec.TestLazyCL.testFloatSigmoidMatchesBetweenCpuAndGpuExactly_usesDoublesInSigmoidThenCastToFloat(TestLazyCL.java:611)
+		at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:45)
+		at immutable.lazycl.spec.TestLazyCL.runTests(TestLazyCL.java:19)
+		at immutable.lazycl.impl.TestLazyclPrototype.main(TestLazyclPrototype.java:8)
+	*/
 	
 	public static void testOpenclRecurrentNeuralnetNCyclesDeep(Lazycl lz, int nodes, int cyclesDeep){
 		LazyBlob firstNodeStates = lz.wrap(float.class, nodes, (int i)->(((i*i*i)%19f)/19f)); //range 0 to 1
@@ -606,7 +636,7 @@ public strictfp class TestLazyCL{
 			"	out[id] = 1.0f/(1.0f+(float)exp(-(double)in[id]));\n"+
 			"}";
 		*/
-		String sigmoidOfArrayCode = LazyclStrictMath.readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53SigmoidFloatButUsesDoubles.langColonCode");
+		String sigmoidOfArrayCode = Files.readStringFromRelFileCached("/data/code/lib/fdlibm53/Fdlibm53SigmoidFloatButUsesDoubles.langColonCode");
 		for(int cycle=0; cycle<cyclesDeep; cycle++){
 			//matmul then sigmoid. its a [1*nodes] by [nodes*nodes] matmul in this simple test.
 			LazyBlob weightedSums = lz.lazycl(
@@ -639,10 +669,7 @@ public strictfp class TestLazyCL{
 				for(int nodeFrom=0; nodeFrom<nodes; nodeFrom++){
 					sum += cpuNodeStates[nodeFrom]*cpuWeights[nodeFrom*nodes+nodeTo]; //FIXME is that backward?
 				}
-				//FIXME implement exp using arithmetic instead of the nonstandard ways it might differ between opencl.exp and java.lang.Math.exp
-				//cpuNextNodeStates[nodeTo] = 1f/(1f+(float)Math.exp(-sum));
 				cpuNextNodeStates[nodeTo] = LazyclStrictMath.cpuSigmoid(sum);
-				//cpuNextNodeStates[nodeTo] = sum; //FIXME
 			}
 			cpuNodeStates = cpuNextNodeStates;
 			cpuNextNodeStates = new float[cpuNodeStates.length];
@@ -652,14 +679,11 @@ public strictfp class TestLazyCL{
 		
 		for(int node=0; node<nodes; node++){
 			String n = "node"+node+"_of_"+nodes;
-			//float openclOutForNode = openclOut.f(node);
-			//float cpuOutForNode = cpuOut[node];
 			lg(n+" gpuOut["+node+"]="+gpuOut[node]+" cpuOut["+node+"]="+cpuOut[node]);
 			if(gpuOut[node] != cpuOut[node]) throw new RuntimeException(
 				n+" diff="+Math.abs(gpuOut[node]-cpuOut[node])
 				+" If its very close, check for strictfp differences in different systems or the use of different algorithms to approximate exponents of e or things like that");
 		}
-		
 		lg("firstNodeStates.bize = "+firstNodeStates.bize());
 		lg("nodeStates.bize = "+nodeStates.bize());
 		lg("testOpenclRecurrentNeuralnetNCyclesDeep("+nodes+","+cyclesDeep+") test pass.");
@@ -1063,8 +1087,8 @@ public strictfp class TestLazyCL{
 		int bSize = bc.length, cSize = bc[0].length, dSize = cd[0].length;
 		if(cd.length != cSize) throw new Error("Sizes dont match");
 		//FIXME verify sizes match and are rectangle arrays
-		float[] bd1d = matmul(cl, bSize, cSize, dSize, LwjglOpenCL.array2dTo1d(bc), LwjglOpenCL.array2dTo1d(cd));
-		return LwjglOpenCL.array1dTo2d(bd1d,bSize);
+		float[] bd1d = matmul(cl, bSize, cSize, dSize, MathUtil.array2dTo1d(bc), MathUtil.array2dTo1d(cd));
+		return MathUtil.array1dTo2d(bd1d,bSize);
 	}
 	
 	/** given double[b][c] and double[c][d] returns double[b][d] */
@@ -1072,8 +1096,8 @@ public strictfp class TestLazyCL{
 		int bSize = bc.length, cSize = bc[0].length, dSize = cd[0].length;
 		if(cd.length != cSize) throw new Error("Sizes dont match");
 		//FIXME verify sizes match and are rectangle arrays
-		double[] bd1d = matmul(cl, bSize, cSize, dSize, LwjglOpenCL.array2dTo1d(bc), LwjglOpenCL.array2dTo1d(cd));
-		return LwjglOpenCL.array1dTo2d(bd1d,bSize);
+		double[] bd1d = matmul(cl, bSize, cSize, dSize, MathUtil.array2dTo1d(bc), MathUtil.array2dTo1d(cd));
+		return MathUtil.array1dTo2d(bd1d,bSize);
 	}
 	
 	/** bc.length==bSize*cSize && cd.length==cSize*dSize */
@@ -1134,5 +1158,25 @@ public strictfp class TestLazyCL{
 		"		}\n"+
 		"		bdOut[bd] = sum;\n"+
 		"}";
+	
+	public static void testLazyclInts(Lazycl lz){
+		lg("Start testLazyclInts");
+		int[] in = new int[]{3, 5, 10};
+		int[] correctOut = new int[]{103, 105, 110};
+		Blob out = lz.lazycl(
+			"Code",
+				"opencl1.2:(global int* out, global const int* in){\n"+
+				"	int id = get_global_id(0);\n"+
+				"	out[id] = in[id]+100;\n"+
+				"}\n",
+			"GlobalSize", in.length,
+			"Bize", 32L*in.length,
+			"in", in
+		);
+		for(int i=0; i<in.length; i++){
+			if(out.i(i) != correctOut[i]) throw new RuntimeException("Test fail, out["+i+"]="+out.i(i));
+		}
+		lg("Test pass: +testLazyclInts");
+	}
 
 }

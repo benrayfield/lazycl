@@ -1,5 +1,7 @@
 package mutable.dependtask;
 
+import immutable.dependtask.LockState;
+
 /** Locked DependParam. Compare with .equals(Object).
  Example: a readWriteLock on a CLMem, used with a readLock on another 2 CLMems to sum derivatives
 into the first CLMem during backprop of matrix multiply.

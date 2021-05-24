@@ -12,7 +12,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.DoubleUnaryOperator;
 
+import mutable.util.Rand;
+
 public class MathUtil{
+	
+	public static String bytesToHex(byte... b){
+		return Text.bytesToHex(b);
+	}
 	
 	public static String bitsToHex(int i){
 		String s = "0000000"+Integer.toUnsignedString(i,16);
@@ -733,7 +739,7 @@ public class MathUtil{
 	public static int readInt(byte[] b, int offset){
 		int ret = 0;
 		for(int i=0; i<4; i++){
-			ret = (ret<<8)|(b[i]&0xff);
+			ret = (ret<<8)|(b[offset+i]&0xff);
 		}
 		return  ret;
 	}
@@ -854,9 +860,9 @@ public class MathUtil{
 		for(int i=0; i<ints.length; i++){
 			int j = ints[i];
 			b[i<<2] = (byte)(j>>>24);
-			b[i<<2+1] = (byte)(j>>>16);
-			b[i<<2+2] = (byte)(j>>>8);
-			b[i<<2+3] = (byte)j;
+			b[(i<<2)+1] = (byte)(j>>>16);
+			b[(i<<2)+2] = (byte)(j>>>8);
+			b[(i<<2)+3] = (byte)j;
 		}
 		return b;
 	}
@@ -890,6 +896,122 @@ public class MathUtil{
 	
 	public static int ceilOfDivide(int x, int y){
 		return (x+y-1)/y;
+	}
+
+	public static double[] array2dTo1d(double[][] in){
+		int b = in.length, c = in[0].length;
+		double[] out = new double[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+
+	/** returns a float[firstDim][in.length/firstDim] where in.length%firstDim==0 */
+	public static float[][] array1dTo2d(float[] in, int firstDim){
+		int secondDim = in.length/firstDim;
+		if(firstDim*secondDim != in.length) throw new Error(in.length+" not divisible by "+firstDim);
+		float[][] out = new float[firstDim][secondDim];
+		for(int i=0; i<firstDim; i++){
+			System.arraycopy(in, i*secondDim, out[i], 0, secondDim);
+		}
+		return out;
+	}
+	
+	public static void testWeightedCoinFlip(){
+		System.out.print("Testing weightRandomBit...");
+		for(double targetChance=0; targetChance<1; targetChance+=.03){
+			int countZeros = 0, countOnes = 0;
+			for(int i=0; i<100000; i++){
+				if(weightedCoinFlip(targetChance,Rand.strongRand)) countOnes++;
+				else countZeros++;
+			}
+			double observedChance = (double)countOnes/(countZeros+countOnes);
+			System.out.println("targetChance="+targetChance+" observedChance="+observedChance);
+			if(Math.abs(targetChance-observedChance) > .01) throw new RuntimeException("targetChance too far from observedChance");
+		}
+	}
+	
+	/** Uses SecureRandom and only an average of 2 random bits from it */
+	public static boolean weightedCoinFlip(double chance){
+		return weightedCoinFlip(chance, Rand.strongRand);
+	}
+
+	/** returns a double[firstDim][in.length/firstDim] where in.length%firstDim==0 */
+	public static double[][] array1dTo2d(double[] in, int firstDim){
+		int secondDim = in.length/firstDim;
+		if(firstDim*secondDim != in.length) throw new Error(in.length+" not divisible by "+firstDim);
+		double[][] out = new double[firstDim][secondDim];
+		for(int i=0; i<firstDim; i++){
+			System.arraycopy(in, i*secondDim, out[i], 0, secondDim);
+		}
+		return out;
+	}
+
+	public static float[] array2dTo1d(float[][] in){
+		int b = in.length, c = in[0].length;
+		float[] out = new float[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+
+	public static int[] array2dTo1d(int[][] in){
+		int b = in.length, c = in[0].length;
+		int[] out = new int[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+
+	public static long[] array2dTo1d(long[][] in){
+		int b = in.length, c = in[0].length;
+		long[] out = new long[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+
+	public static byte[] array2dTo1d(byte[][] in){
+		int b = in.length, c = in[0].length;
+		byte[] out = new byte[b*c];
+		for(int i=0; i<b; i++){
+			System.arraycopy(in[i], 0, out, i*c, c);
+		}
+		return out;
+	}
+	
+	/** concat */
+	public static byte[] longsAndBytesToBytes(long[] longs, byte[] bytes){
+		byte[] ret = new byte[longs.length*8+bytes.length];
+		for(int i=0; i<longs.length; i++) copyLongIntoByteArray(ret, i<<3, longs[i]);
+		System.arraycopy(bytes, 0, ret, longs.length*8, bytes.length);
+		return ret;
+	}
+	
+	public static byte[] longsToBytes(long... longs){
+		byte[] ret = new byte[longs.length*8];
+		for(int i=0; i<ret.length; i++) copyLongIntoByteArray(ret, i<<3, longs[i]);
+		return ret;
+	}
+	
+	public static byte[] shortToBytes(short s){
+		return new byte[]{
+			(byte)(s>>>8),
+			(byte)s
+		};
+	}
+	
+	public static int[] bytesToInts(byte[] b){
+		if((b.length&3)!=0) throw new RuntimeException("Not a multiple of 4 bytes: "+b.length);
+		int[] d = new int[b.length>>2];
+		for(int i=0; i<d.length; i++){
+			d[i] = readInt(b, i<<2);
+		}
+		return d;
 	}
 	
 }

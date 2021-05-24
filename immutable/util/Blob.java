@@ -22,6 +22,18 @@ public strictfp interface Blob{
 	/** bitstring size */
 	public long bize();
 	
+	/** size in units of floats or ints */
+	public default long fsize() {
+		return bize()>>5;
+	}
+	
+	/** size in units of floats or ints */
+	public default int fsizeIntElseThrow() {
+		long fsize = fsize();
+		if(fsize > Integer.MAX_VALUE) throw new RuntimeException("fsize="+fsize());
+		return (int)fsize;
+	}
+	
 	/** bit at index 0 to bize()-1 */
 	public default boolean z(long bitIndex){
 		return (J(bitIndex)>>>63)!=0;

@@ -15,9 +15,17 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import immutable.util.EscapeUtil;
+import immutable.util.Text;
 
 public class Files{
+	public static final Map<String,String> readStringFromRelFile = Collections.synchronizedMap(new HashMap());
+
 	private Files(){}
 	
 	/** path relative to where this program started, like "/data/listweb/s/start.json"
@@ -51,12 +59,27 @@ public class Files{
 		}
 	}
 	
+	//TODO always File then byte[], use same order of params everywhere
+	
 	public static void write(byte data[], File file){
 		write(data, file, false);
 	}
 	
 	public static void append(byte data[], File file){
 		write(data, file, true);
+	}
+	
+	public static void write(File f, byte[] val){
+		f.getParentFile().mkdirs();
+		OutputStream out = null;
+		try{
+			out = new FileOutputStream(f);
+			out.write(val);
+		}catch(IOException e){
+			throw new Error(e);
+		}finally{
+			if(out != null) try{ out.close(); }catch(IOException e){ throw new Error(e); }
+		}
 	}
 	
 	/** make sure to close it before calling other write/append funcs */
@@ -110,21 +133,18 @@ public class Files{
 		}
 	}
 	
-	public static final File dirWhereThisProgramStarted;
-	
-	public static final File dataDir;
+	public static final File dirWhereThisProgramStarted, dataDir, codeAndClasspathDir, varDir;
 	
 	public static final File libDir;
 	static{
 		dirWhereThisProgramStarted = new File(System.getProperty("user.dir")).getAbsoluteFile();
 		dataDir = new File(dirWhereThisProgramStarted,"data");
+		codeAndClasspathDir = new File(dataDir,"code");
 		libDir = new File(dataDir,"lib");
+		varDir = new File(dataDir,"var");
 		//File test = new File(acycDir,"readme.txt");
 		File test = dataDir;
-		if(!test.exists()){
-			lgErr("(TODO rewrite these instructions, too long) My data dir not found, as its expected to contain certain files. Did not find: "+test+" (often thats cuz its in src/data but src should be the working dir). If this program is in an IDE such as Eclipse or Netbeans, set the working dir to the source dir aka classpath. In Eclipse (after checking the 'allow output folders for source folders') in 'project build path', set 'default output dir' to forExample the src dir which contains package/name.java and package/name.class and the data dir. In any 'run configuration' there is also a 'working dir' in the options. This would all happen automaticly if doubleclick a jar file containing most of that (including data dir and classes and source, and the rest is generated in a new data dir or reuse found data dir parallel to where you doubleclicked the jar.");
-			System.exit(0);
-		}
+		if(!test.exists()) throw new RuntimeException("(TODO rewrite these instructions, too long) My data dir not found, as its expected to contain certain files. Did not find: "+test+" (often thats cuz its in src/data but src should be the working dir). If this program is in an IDE such as Eclipse or Netbeans, set the working dir to the source dir aka classpath. In Eclipse (after checking the 'allow output folders for source folders') in 'project build path', set 'default output dir' to forExample the src dir which contains package/name.java and package/name.class and the data dir. In any 'run configuration' there is also a 'working dir' in the options. This would all happen automaticly if doubleclick a jar file containing most of that (including data dir and classes and source, and the rest is generated in a new data dir or reuse found data dir parallel to where you doubleclicked the jar.");
 	}
 	
 	public static boolean bytesEqual(byte x[], byte y[]){
@@ -246,6 +266,33 @@ public class Files{
 		folders.add(folder);
 		for(File f : folder.listFiles()) folders.addAll( allFoldersRecursive(f) );
 		return folders;
+	}
+	
+	public static File fileOfVar(String varName){
+		if(!varName.equals(varName.trim())) throw new RuntimeException("Is not trimmed: "+varName);
+		if(varName.length()==0) throw new RuntimeException("Empty varName");
+		String escaped = EscapeUtil.escapeName(varName);
+		/*String first = escaped.startsWith("_") ? FIXME what if it starts with __?
+		
+		FIXME if it starts with _x for any char x, then thats 1 dir, like in listweb.
+		If it starts with _x_y for any chars x and y thats 2 dirs.
+		so are xy. Otherwise _T which is the escape of T (cuz of case insensitive file systems) creates "/_/T/_The brown fox".
+		but should create "/_T/h/_The brown fox".
+		*/
+		
+		return escaped.length()<2
+			? new File(new File(varDir,"oneChar"),escaped)
+			: new File(new File(new File(varDir,escaped.substring(0,1)),escaped.substring(1,2)),escaped);
+	}
+
+	/** from inside self as jar or working dir */
+	public static String readStringFromRelFileCached(String relFile) {
+		String ret = Files.readStringFromRelFile.get(relFile);
+		if(ret == null){
+			ret = Text.bytesToStr(readFileOrInternalRel(relFile));
+			Files.readStringFromRelFile.put(relFile, ret);
+		}
+		return ret;
 	}
 
 }

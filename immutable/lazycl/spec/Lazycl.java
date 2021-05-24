@@ -19,6 +19,47 @@ as a normal nonsandboxed number crunching system such as gru and lstm
 neuralnets and display of 3d mandelbrot fractal in realtime, etc.
 Blobs are immutable and 1d, similar to memory ranges,
 but you can use 1-3d globalSize and localSize opencl ndrange kernels.
+<br><br>
+A lazycl is stateless other than cache and can be used interchangibly with
+any other lazycl that supports the relevant languages
+such as key "Code"'s value prefixed by "opencl1.2:" or prefixed by "download:" then a url.
+Either way the opencl1.2 ndrange kernels andOr downloading of url lazy-eval to bitstring.
+langs() tells which languages it supports. Different lazycls may support different sets of languages,
+but for each language the behaviors should match, or at least approximately
+such as it does not prevent the use of non-strictfp code strings or stateful code
+but its recommended to only use stateless deterministic/strict code.
+Stateful code will normally be run only once as its designed for stateless code,
+but things can (in theory, TODO build that)
+run multiple times if need to recompute them cuz needed to clear cache.
+I've put alot of effort into finding the subsets of java and opencl
+that compute the exact same bits deterministicly such as LazyclStrictMath.exp functions
+and the opencl code strings they call and java code in that class which does the same thing.
+As of 2021-3-25 it can compute multiple time cycles of a recurrent neuralnet,
+basically just sigmoid of weighted sums, multiple time cycles deep,
+and gets the exact same neural node states at the end of it,
+computing 2 different ways independently,
+one using java code and the other using opencl code. 
+That does need more testing on various OS and kinds of GPU.
+Its expected to work on AMD and NVIDIA gpus, as an earlier version was tested on AMD APUs
+that only supported floats but not doubles,
+but newer version (which uses doubles just in sigmoid, so far, weights are floats)
+was so far (2021-3-28) only tested on NVIDIA in win10.
+Its expected to also work in linux and a variety of other OS
+cuz LWJGL2 does and thats the OpenCL used in this prototype.
+You can replace the OpenCL implementation by creating a Lazycl instance
+that uses a different immutable.opencl.OpenCL.
+The lazy-eval system only calls an OpenCL object (using OpenCL.callOpenclDependnet)
+and doesnt have any other connection to low level opencl.
+callOpenclDependnet has some abilities that Lazycl does not,
+mostly that it can write to multiple CLMems in the same ndrange kernel,
+while lazycl only writes to 1 (that its a lazy-eval of that LazyBlob),
+and callOpenclDependnet can read and write the same CLMem such as += or *=,
+and callOpenclDependnet it can use the same CLMem in multiple ndrange kernels
+as it schedules them considering read and write locking (LockPar and LockState).
+LazyBlob is much simpler and covers most use cases efficiently,
+and some use cases its a few times slower for, but it can do all the same calculations.
+If you need lower level access than LazyBlob for such optimizations, use Lazycl.opencl(),
+which is what I did to create Lazycl.
 */
 public strictfp interface Lazycl{
 	

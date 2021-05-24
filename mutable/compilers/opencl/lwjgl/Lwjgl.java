@@ -29,6 +29,7 @@ import org.lwjgl.opencl.CLProgram;
 import org.lwjgl.opencl.OpenCLException;
 import org.lwjgl.opencl.Util;
 
+import immutable.util.MathUtil;
 import mutable.util.JReflect;
 
 /** Some parts modified from http://wiki.lwjgl.org/wiki/OpenCL_in_LWJGL.html#The_Full_Code
@@ -41,7 +42,7 @@ public class Lwjgl{
 	
 	
 	//TODO Should there be multiple CLCommandQueue? Could I get lower lag for threaded calls to opencl that way
-	//such as if jsoundcard and the main thread both wanted to use opencl?
+	//such as if mutable.jsoundcard and the main thread both wanted to use opencl?
 	//Just do 1 queue 1 java-synchronized for now. Look for more optimizations later.
 
 	private static Lwjgl instance;
@@ -213,7 +214,7 @@ public class Lwjgl{
 						if(logDebug) lg("clCreateBuffer context CL_MEM_READ_ONLY "+(size1d*4)+" erbuf="+errorBuff);
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*4, errorBuff);
 					}else{
-						float[] fa = p instanceof float[] ? (float[])p : LwjglOpenCL.array2dTo1d((float[][])p);
+						float[] fa = p instanceof float[] ? (float[])p : MathUtil.array2dTo1d((float[][])p);
 						if(logDebug) lg("FloatBuffer put float[] then rewind");
 						((FloatBuffer)buffers[i]).put(fa);
 						((FloatBuffer)buffers[i]).rewind();
@@ -234,7 +235,7 @@ public class Lwjgl{
 					if(openclWritesParam[i]){
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*8, errorBuff);
 					}else{
-						double[] fa = p instanceof double[] ? (double[])p : LwjglOpenCL.array2dTo1d((double[][])p);
+						double[] fa = p instanceof double[] ? (double[])p : MathUtil.array2dTo1d((double[][])p);
 						((DoubleBuffer)buffers[i]).put(fa);
 						((DoubleBuffer)buffers[i]).rewind();
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (DoubleBuffer)buffers[i], errorBuff);
@@ -248,7 +249,7 @@ public class Lwjgl{
 					if(openclWritesParam[i]){
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*4, errorBuff);
 					}else{
-						int[] fa = p instanceof int[] ? (int[])p : LwjglOpenCL.array2dTo1d((int[][])p);
+						int[] fa = p instanceof int[] ? (int[])p : MathUtil.array2dTo1d((int[][])p);
 						((IntBuffer)buffers[i]).put(fa);
 						((IntBuffer)buffers[i]).rewind();
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (IntBuffer)buffers[i], errorBuff);
@@ -262,7 +263,7 @@ public class Lwjgl{
 					if(openclWritesParam[i]){
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*8, errorBuff);
 					}else{
-						long[] fa = p instanceof long[] ? (long[])p : LwjglOpenCL.array2dTo1d((long[][])p);
+						long[] fa = p instanceof long[] ? (long[])p : MathUtil.array2dTo1d((long[][])p);
 						((LongBuffer)buffers[i]).put(fa);
 						((LongBuffer)buffers[i]).rewind();
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (LongBuffer)buffers[i], errorBuff);
@@ -276,7 +277,7 @@ public class Lwjgl{
 					if(openclWritesParam[i]){
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_READ_ONLY, size1d*8, errorBuff);
 					}else{
-						byte[] fa = p instanceof byte[] ? (byte[])p : LwjglOpenCL.array2dTo1d((byte[][])p);
+						byte[] fa = p instanceof byte[] ? (byte[])p : MathUtil.array2dTo1d((byte[][])p);
 						((ByteBuffer)buffers[i]).put(fa);
 						((ByteBuffer)buffers[i]).rewind();
 						clmems[i] = CL10.clCreateBuffer(context, CL10.CL_MEM_WRITE_ONLY | CL10.CL_MEM_COPY_HOST_PTR, (ByteBuffer)buffers[i], errorBuff);
@@ -509,6 +510,19 @@ public class Lwjgl{
 	
 	public void enqueueCopyDoublebufferToCLMem(DoubleBuffer buf, CLMem mem){
 		lg("clEnqueueWriteBuffer DoubleBuffer="+buf+" CLMem="+mem);
+		CL10.clEnqueueWriteBuffer(
+			queue,
+			mem, 
+			CL10.CL_TRUE, //blocking_write
+			0L, //offset
+			buf, 
+			null, //event_wait_list
+			null //event
+		);
+	}
+	
+	public void enqueueCopyIntbufferToCLMem(IntBuffer buf, CLMem mem){
+		lg("clEnqueueWriteBuffer IntBuffer="+buf+" CLMem="+mem);
 		CL10.clEnqueueWriteBuffer(
 			queue,
 			mem, 

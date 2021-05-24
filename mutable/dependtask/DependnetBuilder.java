@@ -6,8 +6,13 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.WeakHashMap;
+import mutable.dependtask.DependOp;
+import immutable.dependtask.LockState;
 
 public class DependnetBuilder{ //FIXME move to mutable package
+	
+	//FIXME may have incomplete code for LockState.readWriteLock,
+	//since I've been using just read or write but not both at once, as of 2021-4-8.
 	
 	/** DependOp[] which each have no DependOp childs/depends, in a sequence.
 	Returns a dependnet which can vary that sequence any way that results in the exact same calculation.
@@ -188,7 +193,7 @@ public class DependnetBuilder{ //FIXME move to mutable package
 		
 		
 		
-		/*DependOp d = new DependOp(depends, nonsandboxedLangColonCode, forkSize, params);
+		/*DependOp d = new DependOp(depends, nonsandboxedLangColonCode, parallelSize, params);
 		
 		Then in some cases create DependOps from the new Read of DependParam which depends on that DependOp (with the nonsandboxedLangColonCode),
 		and update paramLocks map and update a map of DependParam to DependOp which is the last DependOp to read or write it.

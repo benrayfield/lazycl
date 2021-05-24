@@ -1,28 +1,62 @@
 package immutable.lazycl.spec;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
-import immutable.util.MathUtil;
-import immutable.util.Pair;
-import immutable.util.Text;
-import mutable.util.Files;
+import java.util.function.DoubleUnaryOperator;
 
-public strictfp class LazyclStrictMath{
+import immutable.util.IEEE754;
+
+public class LazyclStrictMath{
 	
-	/** same bits as gpu computing exp */
-	public static double cpuExp(double x){
-		return normSubnormals(MathUtil.setLowBitTo0(StrictMath.exp(x)));
-		//return StrictMath.exp(x);
-		//return MathUtil.setLowBitTo0(StrictMath.exp(x));
+	public static final byte digitBitsInDoubleIncludingHigh1 = 1+IEEE754.sizeDFraction;
+	public static final byte digitBitsInFloatIncludingHigh1 = 1+IEEE754.sizeFFraction;
+	
+	public static final double TwoPowNeg_digitBitsInDoubleIncludingHigh1 = pow(.5,digitBitsInDoubleIncludingHigh1);
+	
+	public static final float TwoPowNeg_digitBitsInFloatIncludingHigh1 = pow(.5f,digitBitsInFloatIncludingHigh1);
+
+	/** e^x-1. This has far more precision where return value is near 0 than computing e^x first then subtracting 1. Returns -1..infinity, median 0.
+	e^x =approxEquals= (1+(.5*x)^DigitBitsInDouble)^(2^DigitBitsInDouble)
+	*/
+	public static double cpuExpm1(double x){
+		double m = TwoPowNeg_digitBitsInDoubleIncludingHigh1;
+		m *= x; //If leave m as 1 here, returns (approx) e aka (1+.5^DigitBitsInDouble)^(2^DigitBitsInDouble)
+		for(int i=0; i<digitBitsInDoubleIncludingHigh1; i++){ //exponent by squaring. deterministic roundoff if strictfp/"use strict".
+			final double c = m*2;
+			final double d = m*m;
+			m = c+d;
+		}
+		return m;
+	};
+	
+	/** e^x-1. This has far more precision where return value is near 0 than computing e^x first then subtracting 1. Returns -1..infinity, median 0.
+	e^x =approxEquals= (1+(.5*x)^DigitBitsInDouble)^(2^DigitBitsInDouble)
+	*/
+	public static float cpuExpm1(float x){
+		float m = TwoPowNeg_digitBitsInFloatIncludingHigh1;
+		m *= x; //If leave m as 1 here, returns (approx) e aka (1+.5^DigitBitsInDouble)^(2^DigitBitsInDouble)
+		for(int i=0; i<digitBitsInDoubleIncludingHigh1; i++){ //exponent by squaring. deterministic roundoff if strictfp/"use strict".
+			final float c = m*2;
+			final float d = m*m;
+			m = c+d;
+		}
+		return m;
 	}
 	
-	public static double cpuSigmoid(double x){
-		return 1/(1+cpuExp(-x));
+	public static float cpuExp(float x){
+		return 1+cpuExpm1(x);
+	}
+	
+	public static double cpuExp(double x){
+		return 1+cpuExpm1(x);
+	}
+
+	public static double[] cpuExps(Lazycl lz, double[] x){
+		double[] ret = new double[x.length];
+		for(int i=0; i<x.length; i++) ret[i] = cpuExp(x[i]);
+		return ret;
 	}
 	
 	public static float cpuSigmoid(float x){
-		return (float)cpuSigmoid((double)x);
+		return 1/(1+cpuExp(x));
 	}
 	
 	public static float[] cpuSigmoids(float... x){
@@ -31,92 +65,115 @@ public strictfp class LazyclStrictMath{
 		return ret;
 	}
 	
-	public static float[] gpuSigmoids(Lazycl lz, float... x){
-		return (float[]) lz.opencl().callOpencl(
-			LazyclStrictMath.readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53SigmoidFloatButUsesDoubles.langColonCode"),
-			new int[]{x.length}, //globalSize
-			null, //localSize
-			new float[x.length], //ignores this other than to get its size
-			x
-		)[0]; //return replacement of x
+	/** (Sigmoid(x+epsilon)-Sigmoid(x))/epsilon */
+	public static float cpuSigmoidDeriv(float x){
+		//wolframalpha says: e^x/(e^x + 1)^2
+		//e^x/(e^(2*x) + 2*e^x + 1)
+		//1/(e^x + 2 + e^-x)
+		//1/(e^x + e^-x + 2)
+		final float expX = cpuExp(x);
+		final float expNegX = 1/expX;
+		final float sumExps = expX+expNegX;
+		final float bottom = sumExps+2;
+		return 1/bottom;
+		//deriv of sigmoid: 1/(e^x + e^-x + 2)
+		//deriv of tanh: 4/(e^(-2*x) + e^(2*x) + 2)
+	};
+	
+	public static float[] cpuSigmoidDerivs(float... x){
+		float[] ret = new float[x.length];
+		for(int i=0; i<x.length; i++) ret[i] = cpuSigmoidDeriv(x[i]);
+		return ret;
 	}
 	
-	/** Same as setLowBitTo0(java.lang.StrictMath.exp(x)), computed in opencl,
-	though this is wasteful to only do 1 double at a time, its mostly for testing.
-	*/
-	public static double exp(Lazycl lz, double x){
-		return exps(lz, new double[]{x})[0];
+	public static float cpuTanh(float x){
+		final float expX = cpuExp(x);
+		final float expNegX = 1/expX;
+		final float top = expX-expNegX;
+		final float bottom = expX+expNegX;
+		return top/bottom;
 	}
 	
-	/** Same as multiple calls of java.lang.StrictMath.exp(x), computed in opencl in 1 parallel call. */
-	public static double[] exps(Lazycl lz, double[] x){
-		//TODO optimize by using wrapb (backing double[]) instead of wrapc (copies double[])?
-		//Only if caller wont modify the double[] before lazyeval of the returned LazyBlob.
-	
-		//TODO after callOpenclDependnet works for doubles. As of 2021-2-23 only callOpencl (1 kernel at a time) does.
-		boolean useNewCodeForDoubles = false;
-		if(useNewCodeForDoubles){
-			return exps(lz, lz.wrapc(x)).arr(double[].class);
-		}else{
-			return (double[]) lz.opencl().callOpencl(
-				//readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53ExpExceptSetLowBitOfReturnedDoubleTo0.langColonCode"),
-					readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53Exp.langColonCode"),
-				new int[]{x.length},
-				null,
-				
-				//copy output size from this. in callOpencl(Object[]), the param Object[] and returned Object[]
-				//are same length, containing all opencl params and returns
-				new double[x.length],
-				
-				x
-			)[0];
-		}
+	public static float[] cpuTanhs(float... x){
+		float[] ret = new float[x.length];
+		for(int i=0; i<x.length; i++) ret[i] = cpuTanh(x[i]);
+		return ret;
 	}
 	
-	/** the longs are various things I'm testing as I change the Fdlibm53Exp_withExtraOutputForDebug.langColonCode
-	file and Fdlibm53Exp.java together to track down why they're not getting the exact same answer (differs by at most 1 ulp).
-	*/
-	public static Pair<double[],long[]> exp_withExtraOutputForDebug(Lazycl lz, double[] x){
-		Object[] out = lz.opencl().callOpencl(
-			readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53Exp_withExtraOutputForDebug.langColonCode"),
-			new int[]{x.length},
-			null,
-			
-			//copy output size from this. in callOpencl(Object[]), the param Object[] and returned Object[]
-			//are same length, containing all opencl params and returns
-			new double[x.length],
-			new long[x.length],
-			x
-		);
-		return new Pair((double[])out[0], (long[])out[1]);
-	}
+	/** (Tanh(x+epsilon)-Tanh(x))/epsilon */
+	public static float cpuTanhDeriv(float x){
+		//wolframalpha says: 4/(e^-x + e^x)^2
+		//4/(e^(-2*x) + e^(2*x) + 2)
+		final float expTwoX = cpuExp(2*x);
+		final float expNegTwoX = 1/expTwoX;
+		final float sumExps = expTwoX + expNegTwoX;
+		final float bottom = 2+sumExps;
+		return 4/bottom;
+	};
 	
-	/** change subnormals to 0. Does not norm infinites or nans. */
-	public static double normSubnormals(double d){
-		return (-Double.MIN_NORMAL < d && d < Double.MIN_NORMAL) ? 0. : d;
-	}
-	
-	/** Same as multiple calls of java.lang.StrictMath.exp(x), computed in opencl in 1 parallel call.
-	For each in double[], same as java.lang.StrictMath.exp(double), returns double[] same size */
-	public static LazyBlob exps(Lazycl lz, LazyBlob doubles){
-		return lz.lazycl(
-			"Code", readStringFromRelFileCached("/data/lib/fdlibm53/Fdlibm53Exp.langColonCode"),
-			"Bize", doubles.bize(),
-			"GlobalSize", doubles.bize()/64,
-			"in", doubles
-		);
-	}
-	
-	private static final Map<String,String> readStringFromRelFile = Collections.synchronizedMap(new HashMap());
-	
-	/** from inside self as jar or working dir */
-	public static String readStringFromRelFileCached(String relFile) {
-		String ret = readStringFromRelFile.get(relFile);
-		if(ret == null){
-			ret = Text.bytesToStr(Files.readFileOrInternalRel(relFile));
-			readStringFromRelFile.put(relFile, ret);
-		}
+	public static float[] cpuTanhDerivs(float... x){
+		float[] ret = new float[x.length];
+		for(int i=0; i<x.length; i++) ret[i] = cpuTanhDeriv(x[i]);
 		return ret;
 	}
 
+	public static float[] gpuSigmoids(Lazycl lz, float[] ins) {
+		throw new RuntimeException("TODO");
+	}
+
+	public static float[] gpuSigmoidDerivs(Lazycl lz, float[] ins) {
+		throw new RuntimeException("TODO");
+	}
+
+	public static float[] gpuTanhs(Lazycl lz, float[] ins) {
+		throw new RuntimeException("TODO");
+	}
+
+	public static float[] gpuTanhDerivs(Lazycl lz, float[] ins) {
+		throw new RuntimeException("TODO");
+	}
+	
+	/** by squaring */
+	public static double pow(double x, long y){
+		if(y < 0) return pow(1/x, -y);
+		double mul = x;
+		double ret = 1;
+		while(y-->0){
+			if((y&1)!=0) ret *= mul;
+			mul *= mul;
+		}
+		return ret;
+	}
+	
+	/** by squaring */
+	public static float pow(float x, long y){
+		if(y < 0) return pow(1/x, -y);
+		float mul = x;
+		float ret = 1;
+		while(y-->0){
+			if((y&1)!=0) ret *= mul;
+			mul *= mul;
+		}
+		return ret;
+	}
+	
+	/** x^y for any number x and integer y. slow cuz not by squaring. *
+	static double powSlow(double x, int y){
+		double ret = 1;
+		for(int i=y; i>0; i--) ret *= x;
+		return ret;
+	};
+	
+	/** x^y for any number x and integer y. slow cuz not by squaring. *
+	static float powSlow(float x, int y){
+		float ret = 1;
+		for(int i=y; i>0; i--) ret *= x;
+		return ret;
+	};*/
+
+	public static double Exp(double x){ return 1+cpuExpm1(x); };
+
+	public static final double E = Exp(1);
+	
+	
 }

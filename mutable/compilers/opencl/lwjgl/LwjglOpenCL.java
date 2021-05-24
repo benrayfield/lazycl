@@ -267,6 +267,8 @@ public class LwjglOpenCL implements OpenCL{
 							Lwjgl.instance().enqueueCopyFloatbufferToCLMem((FloatBuffer)buf, clmem);
 						}else if(buf instanceof DoubleBuffer){
 							Lwjgl.instance().enqueueCopyDoublebufferToCLMem((DoubleBuffer)buf, clmem);
+						}else if(buf instanceof IntBuffer){
+							Lwjgl.instance().enqueueCopyIntbufferToCLMem((IntBuffer)buf, clmem);
 						}else{
 							throw new RuntimeException("TODO");
 						}
@@ -308,10 +310,18 @@ public class LwjglOpenCL implements OpenCL{
 						"Diff global and local num of dims");
 					globalWorkSize = BufferUtils.createPointerBuffer(ndRangeGlobal.length);
 					localWorkSize_orNull = ndRangeLocal_orNull!=null ? BufferUtils.createPointerBuffer(ndRangeLocal_orNull.length) : null;
-					//FIXME free globalWorkSize
+					//FIXME free globalWorkSize and localWorkSize_orNull ??
 					for(int n=0; n<ndRangeGlobal.length; n++){
 						lg("globalWorkSize.put "+n+" "+ndRangeGlobal[n]);
 						globalWorkSize.put(n, ndRangeGlobal[n]);
+						if(localWorkSize_orNull != null){
+							lg("localWorkSize_orNull.put "+n+" "+ndRangeLocal_orNull[n]);
+							//If you dont do this, there will be a native error that crashes JVM
+							//saying something about int divide by 0, maybe only when using they local keyword in opencl code
+							//or when localWorkSize_orNull!=null or when opencl code contains get_local_id,
+							//which happens in LazyclGraph.mul(Matrix,Matrix) using the modified myGemm matmul code???
+							localWorkSize_orNull.put(n, ndRangeLocal_orNull[n]);
+						}
 					}
 					for(int paramIndex=0; paramIndex<t.params.size(); paramIndex++){
 						DependParam param = t.params.get(paramIndex).dp;
@@ -439,9 +449,15 @@ public class LwjglOpenCL implements OpenCL{
 	}
 	
 	public static String deterministicKernelName(String kernelCodeStartingWithLparen){
-		byte[] hash = HashUtil.sha3_256(Text.stringToBytes(kernelCodeStartingWithLparen));
-		return "cl"+Text.bytesToHex(hash); //TODO base58? Either way, still needs a prefix in case starts with number.
+		//return deterministicKernelName("SHA3-256", kernelCodeStartingWithLparen);
 		
+		//cuz java8 includes sha2 but not sha3. FIXME include a copy of sha3 so can go back to that, cuz sha3 is probably more secure??
+		return deterministicKernelName("SHA-256", kernelCodeStartingWithLparen);
+	}
+	
+	public static String deterministicKernelName(String hashAlg, String kernelCodeStartingWithLparen){
+		byte[] hash = HashUtil.hash(hashAlg,Text.stringToBytes(kernelCodeStartingWithLparen));
+		return "cl"+Text.bytesToHex(hash); //TODO base58? Either way, still needs a prefix in case starts with number.
 	}
 	
 	public static void test_callOpenclDependnet(){
@@ -862,73 +878,6 @@ public class LwjglOpenCL implements OpenCL{
 		}
 	}
 	
-	public static double[] array2dTo1d(double[][] in){
-		int b = in.length, c = in[0].length;
-		double[] out = new double[b*c];
-		for(int i=0; i<b; i++){
-			System.arraycopy(in[i], 0, out, i*c, c);
-		}
-		return out;
-	}
-	
-	/** returns a double[firstDim][in.length/firstDim] where in.length%firstDim==0 */
-	public static double[][] array1dTo2d(double[] in, int firstDim){
-		int secondDim = in.length/firstDim;
-		if(firstDim*secondDim != in.length) throw new Error(in.length+" not divisible by "+firstDim);
-		double[][] out = new double[firstDim][secondDim];
-		for(int i=0; i<firstDim; i++){
-			System.arraycopy(in, i*secondDim, out[i], 0, secondDim);
-		}
-		return out;
-	}
-	
-	public static float[] array2dTo1d(float[][] in){
-		int b = in.length, c = in[0].length;
-		float[] out = new float[b*c];
-		for(int i=0; i<b; i++){
-			System.arraycopy(in[i], 0, out, i*c, c);
-		}
-		return out;
-	}
-	
-	public static int[] array2dTo1d(int[][] in){
-		int b = in.length, c = in[0].length;
-		int[] out = new int[b*c];
-		for(int i=0; i<b; i++){
-			System.arraycopy(in[i], 0, out, i*c, c);
-		}
-		return out;
-	}
-	
-	public static long[] array2dTo1d(long[][] in){
-		int b = in.length, c = in[0].length;
-		long[] out = new long[b*c];
-		for(int i=0; i<b; i++){
-			System.arraycopy(in[i], 0, out, i*c, c);
-		}
-		return out;
-	}
-	
-	public static byte[] array2dTo1d(byte[][] in){
-		int b = in.length, c = in[0].length;
-		byte[] out = new byte[b*c];
-		for(int i=0; i<b; i++){
-			System.arraycopy(in[i], 0, out, i*c, c);
-		}
-		return out;
-	}
-	
-	/** returns a float[firstDim][in.length/firstDim] where in.length%firstDim==0 */
-	public static float[][] array1dTo2d(float[] in, int firstDim){
-		int secondDim = in.length/firstDim;
-		if(firstDim*secondDim != in.length) throw new Error(in.length+" not divisible by "+firstDim);
-		float[][] out = new float[firstDim][secondDim];
-		for(int i=0; i<firstDim; i++){
-			System.arraycopy(in, i*secondDim, out[i], 0, secondDim);
-		}
-		return out;
-	}
-	
 	public static String newKernelName(){
 		return Text.newJibberishWord(Math.pow(2, 128));
 	}
@@ -957,6 +906,20 @@ public class LwjglOpenCL implements OpenCL{
 			System.arraycopy(a[i], 0, b[i], 0, innerSize);
 		}
 		return b;
+	}
+	
+	/** Same params as System.arraycopy except for FloatBuffers.
+	<br><br>
+	TODO optimize by using FloatBuffer.put(FloatBuffer),
+	and make sure to put their positions capacities etc
+	back the way they were before the copy except the
+	range thats been copied.
+	*/
+	public static void arraycopy(
+			FloatBuffer from, int fromIndex, FloatBuffer to, int toIndex, int len){
+		for(int i=0; i<len; i++){
+			to.put(toIndex+i, from.get(fromIndex+i));
+		}
 	}
 
 }

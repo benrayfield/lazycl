@@ -34,6 +34,7 @@ public class Text{
 	
 	private static String unicodeMessage = "UTF-8 is standard for string encoding. Its simple definition is on Wikipedia and can be copied into this software if your version of Java doesn't support it. Each byte starts with 0, 10, 110, or 1110, used to find alignment at unknown position in data, and the rest are the data.";
 	
+	/** utf8 */
 	public static String bytesToStr(byte b[]){
 		try{
 			return new String(b, "UTF-8");
@@ -42,7 +43,7 @@ public class Text{
 		}
 	}
 	
-	public static String bytesToString(byte b[], int from, int to){
+	public static String bytesToStr(byte b[], int from, int to){
 		try{
 			return new String(b, from, to-from, "UTF-8");
 		}catch(UnsupportedEncodingException e){
@@ -88,14 +89,9 @@ public class Text{
 	
 	static final char[] hexDigits = "0123456789abcdef".toCharArray();
 	
-	public static String bytesToHex(byte[] b){
-		StringBuilder sb = new StringBuilder();
-		for(byte x : b){
-			int i = x&0xff;
-			sb.append(hexDigits[(i>>4)&0xf]);
-			sb.append(hexDigits[i&0xf]);
-		}
-		return sb.toString();
+	public static String byteToHex(byte b){
+		//TODO optimize by caching these
+		return ""+hexDigits[(b>>>4)&0xf]+hexDigits[b&0xf];
 	}
 	
 	public static boolean isHexDigit(byte c){
@@ -380,6 +376,10 @@ public class Text{
 			return URLDecoder.decode(s,"UTF-8");
 		}catch(UnsupportedEncodingException e){ throw new Error(e); }
 	}
+	
+	public static String newJibberishWord(){
+		return newJibberishWord(Math.pow(2,192));
+	}
 
 	/** Length will depend on min needed possibleNames */
 	public static String newJibberishWord(double possibleNames){
@@ -427,6 +427,41 @@ public class Text{
 	public static String stat(float... d){
 		float ave = MathUtil.ave(d), dev = MathUtil.devGivenAve(ave, d);
 		return "{float["+d.length+"] ave="+ave+" dev="+dev+"}";
+	}
+	
+	public static byte[] strToBytes(String s){
+		try{
+			return s.getBytes("UTF-8");
+		}catch (UnsupportedEncodingException e){ throw new Error(e); }
+	}
+	
+	public static byte twoHexDigitsToByte(char hi, char lo){
+		return (byte)((hexDigitToInt(hi)<<4)|hexDigitToInt(lo));
+	}
+	
+	public static String bytesToHex(byte... b){
+		return bytesToHex(b, 0, b.length);
+	}
+	
+	public static String bytesToHex(byte[] b, int from, int toExcl){
+		StringBuilder sb = new StringBuilder();
+		for(int j=from; j<toExcl; j++){
+			byte x = b[j];
+		//for(byte x : b){
+			int i = x&0xff;
+			sb.append(hexDigits[(i>>4)&0xf]);
+			sb.append(hexDigits[i&0xf]);
+		}
+		return sb.toString();
+	}
+	
+	public static byte[] hexToBytes(String hex){
+		if((hex.length()&1)!=0) throw new RuntimeException("Must be even number of hex digits: "+hex);
+		byte[] b = new byte[hex.length()>>1];
+		for(int i=0; i<b.length; i++){
+			b[i] = twoHexDigitsToByte(hex.charAt(i<<1),hex.charAt((i<<1)+1));
+		}
+		return b;
 	}
 
 }
