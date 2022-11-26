@@ -1,6 +1,9 @@
 # lazycl
 a Lazy Compute Language/Library. Makes it easy to use opencl, to do in 0.01 second what takes CPU 10 seconds. Gaming-low-lag stateless/immutable lazyEvaled form of opencl_1.2 ndrange kernels, internally using lwjgl2's opencl api for java. Each LazyBlob is a List of LazyBlob and replaces that List with the bitstring when lazyEval finishes. This is a refactoring of the working OpenclUtil code in humanAiNetNeural.
 
+How to run the tests (requires GPU but 1 line of code could change that, asking opencl for a GPU vs CPU instance)..
+C:\x>C:\x\openjdk-11.0.2_windows-x64_bin\bin\java -cp lwjgl.jar;lazycl_1.0_java8_srcAndBin(1).jar -Djava.library.path=. immutable.lazycl.impl.TestLazyclPrototype
+
 All tests pass as of 2021-3-25, including computing a recurrent neuralnet 10 time cycles all at once, and it computes exactly the same bits in cpu vs gpu, but todo more tests. Also, vm_evalOneTheSlowWayNotInGroups is only doing 1 opencl ndrange kernel at a time, but for low lag that needs an upgrade to queue multiple ndrange kernels and do them all in GPU before copying any of it back to CPU. 
 ```
 > node96_of_100 gpuOut[96]=2.5188996E-8 cpuOut[96]=2.5188996E-8
