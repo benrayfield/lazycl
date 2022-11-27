@@ -10,6 +10,7 @@ import immutable.util.Pair;
 import data.lib.fdlibm53.Fdlibm53Exp;
 import mutable.util.Files;
 import mutable.util.Rand;
+import mutable.util.Time;
 import mutable.util.ui.ScreenUtil;
 
 public strictfp class TestLazyCL{
@@ -95,6 +96,10 @@ public strictfp class TestLazyCL{
 		testOpenclRecurrentNeuralnetNCyclesDeep(testStrictfp, lz, 5, 2);
 		testOpenclRecurrentNeuralnetNCyclesDeep(testStrictfp, lz, 100, 10);
 		
+		boolean verifySpeed = false;
+		testTeraflopSpeed(testStrictfp, lz, verifySpeed); //If CPU, this will likely fail. If GPU, this will likely pass.
+		verifySpeed = true;
+		testTeraflopSpeed(testStrictfp, lz, verifySpeed); //faster the second time cuz already compiled
 		
 		
 		//testAcylicFlow(lz);
@@ -161,7 +166,7 @@ public strictfp class TestLazyCL{
 		if(testStrictfp) {
 			if(x != y) throw new RuntimeException("TEST FAIL: "+testName+" cuz "+x+" != "+y+", testStrictfp");
 		}else{
-			float epsilon = Math.max(Math.ulp(x), Math.ulp(y))*1e4f;
+			float epsilon = Math.max(Math.ulp(x), Math.ulp(y))*100000;
 			if(Math.abs(x-y) > epsilon) throw new RuntimeException("TEST FAIL: "+testName+" cuz "+x+" is not near "+y+", epsilon="+epsilon);
 		}
 	}
@@ -675,6 +680,65 @@ public strictfp class TestLazyCL{
 	
 	public static double fastSigmoid(double x) {
 		return 1./(1.+Math.exp(-x));
+	}
+	
+	public static void testTeraflopSpeed(boolean testStrictfp, Lazycl lz, boolean verifySpeed){
+		throw new RuntimeException("TODO get this working later");
+		/*lg("Start testTeraflopSpeed testStrictfp="+testStrictfp+" verifySpeed="+verifySpeed
+			+" (You might want verifySpeed to be false the first run cuz includes compiling, and true in later runs to reuse same compiling)");
+		int threads = 123;
+		int loopSize = 553556; //WARNING: make sure to check max loop size gpu can do, else it might just skip the rest of the loops and look faster than it is.
+		LazyBlob blob = lz.lazycl(
+			"Code",
+			"opencl1.2:(global float* out, const int loopSize){\n"+
+			"	int id = get_global_id(0);\n"+
+			"	double sum = 0.0;\n"+
+			"	for(int i=1; i<=loopSize; i++){\n"+
+			//"		sum += log(i+sqrt(id));\n"+
+			//"		sum = sum+log(sqrt(id));\n"+
+			//"		sum = sum+as_float(id);\n"+
+			//"		sum = sum+sqrt(as_float(id));\n"+
+			//"		sum = sum+log(as_float(i)+sqrt(as_float(id)));\n"+
+			//"		sum = sum+log((float)(id+i*i));\n"+
+			//"		sum = sum+id+(double)i*i;\n"+
+			"		sum = sum + 1;\n"+
+			"	}\n"+
+			"	out[id] = (float)sum;\n"+
+			"}",
+			"Bize", threads*32L, //float is 32 bits. get float[1*nodes]
+			"GlobalSize", threads,
+			"loopSize", loopSize
+			//TODO also use LocalSize of new int[]{32,32} or 32, and GlobalSize of new int[]{something,32}
+		);
+		int testWhichThread = threads-37;
+		double correctCpuOut_ = 0;
+		for(int i=1; i<=threads; i++){
+			//correctCpuOut += Math.log(i+Math.sqrt(testWhichThread));
+			//correctCpuOut += Math.log(testWhichThread+i*i);
+			correctCpuOut_ += testWhichThread+(double)i*i;
+		}
+		float correctCpuOut = (float)correctCpuOut_;
+		
+		double timeA = Time.now();
+		
+		
+		//FIXME that laziness might only happen in newer code in occamsworkspace i havent uploaded to github yet?
+		//doesnt compile or call GPU until read the first thing in the output. Thats why its LAZY cl.
+		//WARNING: this will count GPU compile time (might be 0.1 second) in with the GPU compute time,
+		//despite that if its done again, it only takes about a millisecond (reuses GPU compiled output).
+		float observedGpuOut = blob.f(testWhichThread);
+		double timeB = Time.now();
+		double duration = timeB-timeA;
+		//double flopPerLoopBody = 4; //sum += log(i+sqrt(id));\n"+ might be more than that cuz multiple flop in log and in sqrt
+		double flopPerLoopBody = 3; //sum += log(i+sqrt(id));\n"+
+		double workDone = (double)loopSize*threads*flopPerLoopBody;
+		double flops = workDone/duration; 
+		lg("inaccurate cuz included GPU compile time in GPU compute time, but...\nflops="+flops+" timeA="+timeA+" timeB="+timeB+" duration="+duration+" flopPerLoopBody="+flopPerLoopBody+" workDone="+workDone);
+		testNearOrEq(testStrictfp, "testTeraflopSpeed", correctCpuOut, observedGpuOut);
+		if(verifySpeed && flops < 1e12) throw new RuntimeException("Flops="+flops+" is too low, probably not a GPU");
+		if(!verifySpeed) lg("not verifying speed this time");
+		lg("testTeraflopSpeed test pass");
+		*/
 	}
 	
 	public static void testOpenclRecurrentNeuralnetNCyclesDeep(boolean testStrictfp, Lazycl lz, int nodes, int cyclesDeep){
