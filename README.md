@@ -4,6 +4,14 @@ a Lazy Compute Language/Library. Makes it easy to use opencl, to do in 0.01 seco
 How to run the tests (requires GPU but 1 line of code could change that, asking opencl for a GPU vs CPU instance)..
 C:\x>C:\x\openjdk-11.0.2_windows-x64_bin\bin\java -cp lwjgl.jar;lazycl_1.0_java8_srcAndBin(1).jar -Djava.library.path=. immutable.lazycl.impl.TestLazyclPrototype
 
+[[[
+Test output now says opencl 3.0 for my nvidia 2080 gpu. Probably happened in drivers, since nvidia page on wikipedia says same thing, and it used to be 1.2.
+
+2022-11-27: "Lwjgl.java device (CLDevice pointer (0x18608C630E0)) capabilities: OpenCL 3.0 - Extensions: cl_khr_3d_image_writes cl_khr_byte_addressable_store cl_khr_fp64 cl_khr_gl_sharing cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_int64_base_atomics cl_khr_int64_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll "
+
+OLD: Lwjgl.java device (CLDevice pointer (0x11717F0)) capabilities: OpenCL 1.2 - Extensions: cl_khr_byte_addressable_store cl_khr_fp64 cl_khr_gl_sharing cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_int64_base_atomics cl_khr_int64_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll 
+]]]
+
 All tests pass as of 2021-3-25, including computing a recurrent neuralnet 10 time cycles all at once, and it computes exactly the same bits in cpu vs gpu, but todo more tests. Also, vm_evalOneTheSlowWayNotInGroups is only doing 1 opencl ndrange kernel at a time, but for low lag that needs an upgrade to queue multiple ndrange kernels and do them all in GPU before copying any of it back to CPU. 
 ```
 > node96_of_100 gpuOut[96]=2.5188996E-8 cpuOut[96]=2.5188996E-8
