@@ -7,6 +7,7 @@ import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +50,8 @@ public class Lwjgl{
 	
 	private final CLContext context;
 	private final CLPlatform platform;
-	private final List<CLDevice> devices;
+	//private final List<CLDevice> devices;
+	public final CLDevice device;
 	private final CLCommandQueue queue;
 	static{
 		lgErr("FIXME gargcol Lwjgl.errorBuff in finalize()?");
@@ -75,7 +77,8 @@ public class Lwjgl{
 				//String compilerParams = "-cl-opt-disable"; //FIXME remove this?
 				String compilerParams = "-cl-opt-disable -cl-std=CL1.2";
 				//String compilerParams = ""; //FIXME
-				int error = CL10.clBuildProgram(prog, devices.get(0), compilerParams, null);
+				//int error = CL10.clBuildProgram(prog, devices.get(0), compilerParams, null);
+				int error = CL10.clBuildProgram(prog, device, compilerParams, null);
 				//FIXME choose which of https://www.khronos.org/registry/OpenCL/sdk/1.0/docs/man/xhtml/clBuildProgram.html to use
 				//	for determinism but without telling it to be slower than it has to
 				//	for that determinism.
@@ -106,6 +109,61 @@ public class Lwjgl{
 		return instance;
 	}
 	
+	//Example: score GPUs higher than CPUs, so use GPU if you have it, else use CPU.
+	public static double scoreDevice(CLDevice device){
+		//TODO negative score should not allow using the device at all?
+		if(deviceIsGPU(device)) return 100;
+		if(deviceIsCPU(device)) return 10;
+		return 0;
+	}
+	
+	public static boolean deviceIsGPU(CLDevice device){
+		return device.getInfoInt(CL10.CL_DEVICE_TYPE)==CL10.CL_DEVICE_TYPE_GPU;
+	}
+	
+	public static boolean deviceIsCPU(CLDevice device){
+		return device.getInfoInt(CL10.CL_DEVICE_TYPE)==CL10.CL_DEVICE_TYPE_CPU;
+	}
+	
+	public List<CLDevice> getDevices(){
+		// Get the first available platform
+		List<CLPlatform> platforms = CLPlatform.getPlatforms();
+		lg("\r\nLwjgl.java platforms "+platforms+"\r\n");
+		lg("A constant: CL10.CL_DEVICE_TYPE="+CL10.CL_DEVICE_TYPE);
+		lg("A constant: CL10.CL_DEVICE_TYPE_GPU="+CL10.CL_DEVICE_TYPE_GPU);
+		lg("A constant: CL10.CL_DEVICE_TYPE_CPU="+CL10.CL_DEVICE_TYPE_CPU);
+		lg("A constant: CL10.CL_DEVICE_TYPE_ALL="+CL10.CL_DEVICE_TYPE_ALL);
+		lg("A constant: CL10.CL_DEVICE_TYPE_DEFAULT="+CL10.CL_DEVICE_TYPE_DEFAULT);
+		List<CLDevice> devices = new ArrayList();
+		for(CLPlatform platform : platforms) {
+			//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_GPU);
+			List<CLDevice> devicesInPlatform = platform.getDevices(CL10.CL_DEVICE_TYPE_ALL);
+			//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_CPU);
+			for(CLDevice device : devicesInPlatform) {
+				devices.add(device);
+			}
+		}
+		devices.sort((CLDevice deviceA, CLDevice deviceB)->(int)Math.signum(scoreDevice(deviceB)-scoreDevice(deviceA)));
+		//TODO negative score should not allow using the device at all?
+		lg("Will use first device and ignore the others. These are sorted by scoreDevice(CLDevice):");
+		for(CLDevice device : devices){
+			lg("\r\nLwjgl.java device ("+device+") lazycl_score="+scoreDevice(device)+" isGPU="+deviceIsGPU(device)+" isCPU="+deviceIsCPU(device)
+				+" capabilities: "+new CLDeviceCapabilities(device)
+				+" type="+device.getInfoInt(CL10.CL_DEVICE_TYPE)+"\r\n");
+		}
+		
+		
+		//CLPlatform = platform = platforms.get(0); 
+		// Run our program on the GPU
+		//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_GPU);
+		//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_ALL);
+		//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_CPU);
+		//for(CLDevice device : devices){
+		//	lg("\r\nLwjgl.java device ("+device+") capabilities: "+new CLDeviceCapabilities(device)+"\r\n");
+		//}
+		return devices;
+	}
+	
 	private Lwjgl() throws LWJGLException{
 		try{
 			Class.forName("org.lwjgl.opencl.CLObject");
@@ -115,17 +173,23 @@ public class Lwjgl{
 		IntBuffer errorBuf = BufferUtils.createIntBuffer(1);
 		// Create OpenCL
 		CL.create();
-		// Get the first available platform
-		platform = CLPlatform.getPlatforms().get(0); 
-		// Run our program on the GPU
-		devices = platform.getDevices(CL10.CL_DEVICE_TYPE_GPU);
-		//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_ALL);
-		//devices = platform.getDevices(CL10.CL_DEVICE_TYPE_CPU);
-		for(CLDevice device : devices){
-			lg("\r\nLwjgl.java device ("+device+") capabilities: "+new CLDeviceCapabilities(device)+"\r\n");
-		}
+		
+		//TODO negative score should not allow using the device at all?
+		List<CLDevice> devices = getDevices();
+		if(devices.isEmpty()) throw new RuntimeException("No CLDevices (such as GPUs and CPUs) found.");
+		//CLDevice device = devices.get(0);
+
+		
+		lg("devices = "+devices);
+		
+		device = devices.get(0); //highest scoring device (or to break ties, does not reorder them from how opencl gave them).
+		platform = device.getPlatform();
+		
+		
 		// Create an OpenCL context, this is where we could create an OpenCL-OpenGL compatible context
-		context = CLContext.create(platform, devices, errorBuf);
+		//context = CLContext.create(platform, devices, errorBuf);
+		//context = CLContext.create(device.getPlatform(), devices, errorBuf);
+		context = CLContext.create(device.getPlatform(), Arrays.asList(device), errorBuf); //TODO use multiple devices (within same CLPLatform)?
 		// Create a command queue
 		queue = CL10.clCreateCommandQueue(context, devices.get(0), CL10.CL_QUEUE_PROFILING_ENABLE, errorBuf);
 		// Check for any errors

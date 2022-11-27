@@ -1,0 +1,7 @@
+opencl1.2:(global float* out, global const float* in){
+	const int id = get_global_id(0);
+	//double x = in[id];
+	//double x = (float)in[id];
+	double x = in[id];
+	out[id] = (float)(1.0/(1.0+exp(-x)));
+}
